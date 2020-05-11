@@ -40,3 +40,10 @@ print('Centroids post update: ', model.centroids.size())
 logits = model.compute_logits(emb)
 
 print('Logits: ', logits.size(), '\n')
+
+loss_ce = torch.nn.functional.cross_entropy(out, torch.ones(out.size(0)).long())
+loss_sim = torch.nn.functional.cross_entropy(logits, torch.ones(out.size(0)).long())
+loss = loss_ce+loss_sim
+loss.backward()
+
+print('Losses (ce, sim, all): {}, {}, {} \n'.format(loss_ce, loss_sim, loss))
