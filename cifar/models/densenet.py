@@ -4,7 +4,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from utils import get_centroids
 from models.losses import AMSoftmax, Softmax
 
 
@@ -128,16 +128,15 @@ class DenseNet(nn.Module):
 		
 		return z
 
-	def update_centroids(self, centroids, targets):
+	def update_centroids(self, embeddings, targets):
 
-		self.centroids.to(centroids.device)
+		self.centroids =  self.centroids.to(embeddings.device)
+
+		new_centroids, mask = get_centroids(embeddings, targets, 10)
 
 		with torch.no_grad():
-			new_centroids = torch.zeros_like(self.centroids).to(self.centroids.device).scatter_(0, targets.unsqueeze(-1).expand_as(centroids), centroids)
-
-			mask = torch.ones_like(self.centroids).to(self.centroids.device).scatter_(0, targets.unsqueeze(-1).expand_as(centroids), self.centroids_lambda*torch.ones_like(self.centroids))
-
-			self.centroids = mask*self.centroids + (1.-mask)*new_centroids
+			mask *= 1.-self.centroids_lambda
+			self.centroids = (1.-mask)*self.centroids + mask*new_centroids
 
 		self.centroids.requires_grad = False
 

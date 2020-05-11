@@ -10,16 +10,17 @@ from time import sleep
 
 def get_centroids(embeddings, targets, num_classes):
 
-	all_ones, counts = torch.ones(num_classes), torch.zeros(num_classes)
+	all_ones, counts = torch.ones(embeddings.size(0)), torch.zeros(num_classes)
 	centroids = torch.zeros(num_classes, embeddings.size(-1))
 
 	with torch.no_grad():
+
 		counts.scatter_add_(dim=0, index=targets, src=all_ones)
-		counts = torch.max(counts, torch.ones_like(counts)).unsqueeze_(-1)
+		counts_corrected = torch.max(counts, torch.ones_like(counts))
+		mask = 1.-torch.abs(counts_corrected-counts).unsqueeze(-1).expand_as(centroids)
+		centroids.scatter_add_(dim=0, index=targets.unsqueeze(-1).expand_as(embeddings), src=embeddings).div_(counts_corrected.unsqueeze_(-1))
 
-		centroids.scatter_add_(dim=0, index=targets.unsqueeze(1).expand_as(embeddings), src=embeddings).div_(counts)
-
-	return centroids
+	return centroids, mask
 
 def get_classifier_config_from_model(model):
 	x=0
