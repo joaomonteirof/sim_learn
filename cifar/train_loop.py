@@ -162,7 +162,7 @@ class TrainLoop(object):
 
 		embeddings = self.model.forward(x)
 
-		self.model.update_centroids(embeddings)
+		self.model.update_centroids(embeddings, y)
 
 		if not self.ablation_ce:
 			ce_loss = self.ce_criterion(self.model.out_proj(embeddings_norm, y), y)
