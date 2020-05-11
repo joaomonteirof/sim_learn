@@ -6,7 +6,7 @@ import numpy as np
 import os
 from tqdm import tqdm
 
-from harvester import HardestNegativeTripletSelector, AllTripletSelector
+from harvester import AllTripletSelector
 from models.losses import LabelSmoothingLoss
 from utils import compute_eer
 
