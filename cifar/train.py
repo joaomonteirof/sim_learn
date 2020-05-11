@@ -43,7 +43,6 @@ parser.add_argument('--momentum', type=float, default=0.9, metavar='lambda', hel
 parser.add_argument('--checkpoint-epoch', type=int, default=None, metavar='N', help='epoch to load for checkpointing. If None, training starts from scratch')
 parser.add_argument('--checkpoint-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
 parser.add_argument('--data-path', type=str, default='./data/', metavar='Path', help='Path to data')
-parser.add_argument('--valid-data-path', type=str, default='./data/', metavar='Path', help='Path to data')
 parser.add_argument('--seed', type=int, default=42, metavar='S', help='random seed (default: 42)')
 parser.add_argument('--n-workers', type=int, default=4, metavar='N', help='Workers for data loading. Default is 4')
 parser.add_argument('--model', choices=['vgg', 'resnet', 'densenet'], default='resnet')
@@ -67,11 +66,11 @@ transform_train = transforms.Compose([transforms.RandomCrop(32, padding=4), tran
 transform_test = transforms.Compose([transforms.ToTensor(), transforms.Normalize([x / 255 for x in [125.3, 123.0, 113.9]], [x / 255 for x in [63.0, 62.1, 66.7]])])
 
 #trainset = Loader(args.data_path)
-trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
+trainset = datasets.CIFAR10(root=args.data_path, train=True, download=True, transform=transform_train)
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed)
 
 #validset = Loader(args.valid_data_path)
-validset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
+validset = datasets.CIFAR10(root=args.data_path, train=False, download=True, transform=transform_test)
 valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=False, num_workers=args.n_workers)
 
 if args.model == 'vgg':
