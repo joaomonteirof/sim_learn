@@ -133,9 +133,9 @@ class DenseNet(nn.Module):
 		self.centroids.to(centroids.device)
 
 		with torch.no_grad():
-			new_centroids = torch.zeros_like(self.centroids).scatter_(0, targets.unsqueeze(-1).expand_as(centroids), centroids)
+			new_centroids = torch.zeros_like(self.centroids).to(self.centroids.device).scatter_(0, targets.unsqueeze(-1).expand_as(centroids), centroids)
 
-			mask = torch.ones_like(self.centroids).scatter_(0, targets.unsqueeze(-1).expand_as(centroids), self.centroids_lambda*torch.ones_like(self.centroids))
+			mask = torch.ones_like(self.centroids).to(self.centroids.device).scatter_(0, targets.unsqueeze(-1).expand_as(centroids), self.centroids_lambda*torch.ones_like(self.centroids))
 
 			self.centroids = mask*self.centroids + (1.-mask)*new_centroids
 
