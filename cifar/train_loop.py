@@ -170,7 +170,7 @@ class TrainLoop(object):
 			ce_loss = 0.0
 
 		if not self.ablation_sim:
-			sim_loss = self.ce_criterion(self.model.compute_logits(embeddings, y), y)
+			sim_loss = self.ce_criterion(self.model.compute_logits(embeddings), y)
 		else:
 			sim_loss = 0.0
 
@@ -198,7 +198,7 @@ class TrainLoop(object):
 			pred_ce = F.softmax(out_ce, dim=1).max(1)[1].long()
 			correct_ce = pred_ce.squeeze().eq(y.squeeze()).detach().sum().item()
 
-			out_sim = self.model.compute_logits(embeddings, y)
+			out_sim = self.model.compute_logits(embeddings)
 			pred_sim = F.softmax(out_sim, dim=1).max(1)[1].long()
 			correct_sim = pred_sim.squeeze().eq(y.squeeze()).detach().sum().item()
 
