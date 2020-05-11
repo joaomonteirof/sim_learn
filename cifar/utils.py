@@ -10,8 +10,8 @@ from time import sleep
 
 def get_centroids(embeddings, targets, num_classes):
 
-	all_ones, counts = torch.ones(embeddings.size(0)), torch.zeros(num_classes)
-	centroids = torch.zeros(num_classes, embeddings.size(-1))
+	all_ones, counts = torch.ones(embeddings.size(0)).to(embeddings.device), torch.zeros(num_classes).to(embeddings.device)
+	centroids = torch.zeros(num_classes, embeddings.size(-1)).to(embeddings.device)
 
 	with torch.no_grad():
 
