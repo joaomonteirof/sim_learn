@@ -165,7 +165,7 @@ class TrainLoop(object):
 		self.model.update_centroids(embeddings, y)
 
 		if not self.ablation_ce:
-			ce_loss = self.ce_criterion(self.model.out_proj(embeddings_norm, y), y)
+			ce_loss = self.ce_criterion(self.model.out_proj(embeddings, y), y)
 		else:
 			ce_loss = 0.0
 
@@ -203,7 +203,7 @@ class TrainLoop(object):
 			correct_sim = pred_sim.squeeze().eq(y.squeeze()).detach().sum().item()
 
 			# Get all triplets now for bin classifier
-			triplets_idx = self.harvester.get_triplets(embeddings_norm.detach(), y)
+			triplets_idx = self.harvester.get_triplets(embeddings.detach(), y)
 			triplets_idx = triplets_idx.to(self.device)
 
 			emb_a = torch.index_select(embeddings, 0, triplets_idx[:, 0])
