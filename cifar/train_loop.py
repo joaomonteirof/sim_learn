@@ -133,7 +133,7 @@ class TrainLoop(object):
 
 			self.cur_epoch += 1
 
-			if self.valid_loader is not None and self.save_cp and (self.cur_epoch % save_every == 0 or self.history['e2e_eer'][-1] < np.min([np.inf]+self.history['e2e_eer'][:-1]) or self.history['cos_eer'][-1] < np.min([np.inf]+self.history['cos_eer'][:-1])):
+			if self.valid_loader is not None and self.save_cp and (self.cur_epoch % save_every == 0 or self.history['ErrorRate_ce'][-1] < np.min([np.inf]+self.history['ErrorRate_ce'][:-1]) or self.history['ErrorRate_sim'][-1] < np.min([np.inf]+self.history['ErrorRate_sim'][:-1])):
 					self.checkpointing()
 			elif self.save_cp and self.cur_epoch % save_every == 0:
 					self.checkpointing()
