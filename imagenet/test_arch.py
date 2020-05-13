@@ -17,14 +17,13 @@ parser.add_argument('--ablation-sim', action='store_true', default=False, help='
 args = parser.parse_args()
 
 if args.model == 'vgg':
-	model = vgg.VGG('VGG16', nh=args.n_hidden, n_h=args.hidden_size)
+	model = vgg.VGG('VGG19', nh=args.n_hidden, n_h=args.hidden_size)
 elif args.model == 'resnet':
-	model = resnet.ResNet18(nh=args.n_hidden, n_h=args.hidden_size)
+	model = resnet.ResNet50(nh=args.n_hidden, n_h=args.hidden_size)
 elif args.model == 'densenet':
-	model = densenet.densenet_cifar(nh=args.n_hidden, n_h=args.hidden_size)
+	model = densenet.DenseNet121(nh=args.n_hidden, n_h=args.hidden_size)
 
-
-batch = torch.rand(args.batch_size, 3, 32, 32)
+batch = torch.rand(args.batch_size, 3, 224, 224)
 
 emb = model.forward(batch)
 

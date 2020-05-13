@@ -12,7 +12,7 @@ from utils import compute_eer
 
 class TrainLoop(object):
 
-	def __init__(self, model, optimizer, train_loader, valid_loader, patience, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True):
+	def __init__(self, model, optimizer, train_loader, valid_loader, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True):
 		if checkpoint_path is None:
 			# Save to current directory
 			self.checkpoint_path = os.getcwd()
@@ -43,14 +43,13 @@ class TrainLoop(object):
 		else:
 			self.ce_criterion = torch.nn.CrossEntropyLoss()
 
+		self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[10, 150, 250, 350], gamma=0.1)
+
 		if self.valid_loader is not None:
 			self.history['e2e_eer'] = []
 			self.history['cos_eer'] = []
 			self.history['ErrorRate_sim'] = []
 			self.history['ErrorRate_ce'] = []
-			self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, factor=0.5, patience=patience, verbose=True if self.verbose>0 else False, threshold=1e-4, min_lr=1e-7)
-		else:
-			self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[20, 100, 200, 300, 400], gamma=0.1)
 
 		if checkpoint_epoch is not None:
 			self.load_checkpoint(self.save_epoch_fmt.format(checkpoint_epoch))
@@ -81,16 +80,16 @@ class TrainLoop(object):
 				sim_loss_epoch+=sim_loss
 				self.total_iters += 1
 
+			self.scheduler.step()
+
 			self.history['train_loss'].append(train_loss_epoch/(t+1))
 			self.history['ce_loss'].append(ce_loss_epoch/(t+1))
 			self.history['sim_loss'].append(sim_loss_epoch/(t+1))
 
 			if self.verbose>0:
-				print(' ')
-				print('Total train loss: {:0.4f}'.format(self.history['train_loss'][-1]))
+				print('\nTotal train loss: {:0.4f}'.format(self.history['train_loss'][-1]))
 				print('CE loss: {:0.4f}'.format(self.history['ce_loss'][-1]))
-				print('Sim loss: {:0.4f}'.format(self.history['sim_loss'][-1]))
-				print(' ')
+				print('Sim loss: {:0.4f}\n'.format(self.history['sim_loss'][-1]))
 
 			if self.valid_loader is not None:
 
@@ -122,11 +121,6 @@ class TrainLoop(object):
 					print('Current cos EER, best cos EER, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['cos_eer'][-1], np.min(self.history['cos_eer']), 1+np.argmin(self.history['cos_eer'])))
 					print('Current Error rate CE, best Error rate CE, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['ErrorRate_ce'][-1], np.min(self.history['ErrorRate_ce']), 1+np.argmin(self.history['ErrorRate_ce'])))
 					print('Current Error rate SIM, best Error rate SIM, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['ErrorRate_sim'][-1], np.min(self.history['ErrorRate_sim']), 1+np.argmin(self.history['ErrorRate_sim'])))
-
-				self.scheduler.step(np.min([self.history['e2e_eer'][-1], self.history['cos_eer'][-1]]))
-
-			else:
-				self.scheduler.step()
 
 			if self.verbose>0:
 				print('Current LR: {}'.format(self.optimizer.param_groups[0]['lr']))
@@ -169,16 +163,13 @@ class TrainLoop(object):
 		else:
 			ce_loss = 0.0
 
-		if not self.ablation_sim:
-			sim_loss = self.ce_criterion(self.model.compute_logits(embeddings), y)
-		else:
-			sim_loss = 0.0
+		sim_loss = self.ce_criterion(self.model.compute_logits(embeddings, ablation=self.ablation_sim), y)
 
 		loss = ce_loss + sim_loss
 		loss.backward()
 		self.optimizer.step()
 
-		return loss.item(), 0.0 if self.ablation_ce else ce_loss.item(), 0.0 if self.ablation_sim else sim_loss.item()
+		return loss.item(), 0.0 if self.ablation_ce else ce_loss.item(), sim_loss.item()
 
 
 	def valid(self, batch):

@@ -14,33 +14,35 @@ cfg = {
 
 
 class VGG(nn.Module):
-	def __init__(self, vgg_name, nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', centroids_lambda=0.9):
+	def __init__(self, vgg_name, nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=1000, centroids_lambda=0.9):
 		super(VGG, self).__init__()
 
 		self.dropout_prob = dropout_prob
 		self.n_hidden = nh
 		self.hidden_size = n_h
 		self.sm_type = sm_type
-
+		self.n_classes = n_classes
 		self.centroids_lambda = centroids_lambda
 
-		self.centroids = torch.rand(10, 512)
+		self.centroids = torch.rand(10, 512 * 7 * 7)
 		self.centroids.requires_grad = False
 
 		self.features = self._make_layers(cfg[vgg_name])
+		self.avgpool = nn.AdaptiveAvgPool2d((7, 7))
 
 		if sm_type=='softmax':
-			self.out_proj=Softmax(input_features=512, output_features=10)
+			self.out_proj=Softmax(input_features=512 * 7 * 7, output_features=self.n_classes)
 		elif sm_type=='am_softmax':
-			self.out_proj=AMSoftmax(input_features=512, output_features=10)
+			self.out_proj=AMSoftmax(input_features=512 * 7 * 7, output_features=self.n_classes)
 		else:
 			raise NotImplementedError
 
-		self.similarity = self.make_bin_layers(n_in=2*512, n_h_layers=nh, h_size=n_h, dropout_p=dropout_prob)
+		self.similarity = self.make_bin_layers(n_in=2*512 * 7 * 7, n_h_layers=nh, h_size=n_h, dropout_p=dropout_prob)
 
 	def forward(self, x):
-		features = self.features(x)
+		features = self.avgpool(self.features(x))
 		features = features.view(features.size(0), -1)
+
 		return features
 
 	def _make_layers(self, cfg):

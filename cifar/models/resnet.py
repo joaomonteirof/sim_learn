@@ -197,7 +197,7 @@ class ResNet(nn.Module):
 
 		self.centroids.requires_grad = False
 
-	def compute_logits(self, embeddings):
+	def compute_logits(self, embeddings, ablation=False):
 
 		centroids = self.centroids.unsqueeze(0)
 		emb = embeddings.unsqueeze(1)
@@ -205,7 +205,10 @@ class ResNet(nn.Module):
 		centroids = centroids.repeat(embeddings.size(0), 1, 1)
 		emb = emb.repeat(1, self.centroids.size(0), 1)
 
-		return self.forward_bin(centroids, emb).squeeze(-1).transpose(1,-1)
+		if ablation:
+			return -((centroids-emb).pow(2).sum(-1).sqrt()).transpose(1,-1)
+		else:
+			return self.forward_bin(centroids, emb).squeeze(-1).transpose(1,-1)
 
 def ResNet18(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', centroids_lambda=0.9):
 	return ResNet(PreActBlock, [2,2,2,2], nh=nh, n_h=n_h, sm_type=sm_type, dropout_prob=dropout_prob, centroids_lambda=centroids_lambda)

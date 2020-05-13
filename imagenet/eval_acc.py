@@ -25,8 +25,8 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 	args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 
-	transform_test = transforms.Compose([transforms.ToTensor(), transforms.Normalize([x / 255 for x in [125.3, 123.0, 113.9]], [x / 255 for x in [63.0, 62.1, 66.7]])])
-	testset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
+	transform_test = transforms.Compose([transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+	testset = datasets.ImageFolder(args.data_path, transform=transform_test)
 	test_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
 
 	ckpt = torch.load(args.cp_path, map_location = lambda storage, loc: storage)
@@ -59,7 +59,7 @@ if __name__ == '__main__':
 
 	model.eval()
 
-	correct_ce, correct_sim, correct_mix = 0, 0, 0
+	correct_ce_1, correct_ce_5, correct_sim_1, correct_sim_5 correct_mix_1, correct_mix_5 = 0, 0, 0, 0, 0, 0
 
 	with torch.no_grad():
 
@@ -73,19 +73,26 @@ if __name__ == '__main__':
 
 			embeddings = model.forward(x)
 
-			out_ce = F.softmax(model.out_proj(embeddings), dim=1)
-			pred_ce = out_ce.max(1)[1].long()
-			correct_ce += pred_ce.squeeze().eq(y).sum().item()
+			pred_ce = F.softmax(model.out_proj(embeddings), dim=1)
+			(correct_ce_1_, correct_ce_5_) = correct_topk(pred_ce, y, (1,5))
 
-			out_sim = F.softmax(model.compute_logits(embeddings, ablation=args.ablation_sim), dim=1)
-			pred_sim = out_sim.max(1)[1].long()
-			correct_sim += pred_sim.squeeze().eq(y).sum().item()
+			pred_sim = F.softmax(model.compute_logits(embeddings, ablation=args.ablation_sim), dim=1)
+			(correct_sim_1_, correct_cesim_5_) = correct_topk(pred_sim, y, (1,5))
 
-			out_mix = 0.5*out_ce+0.5*out_sim
-			pred_mix = out_mix.max(1)[1].long()
-			correct_mix += pred_mix.squeeze().eq(y).sum().item()
+			pred_mix = 0.5*pred_ce+0.5*pred_sim
+			(correct_mix_1_, correct_mix_5_) = correct_topk(pred_mix, y, (1,5))
 
-	print('\nCE Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct_ce/len(testset)))
-	print('\nSIM Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct_sim/len(testset)))
-	print('\nMIX Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct_mix/len(testset)))
+			correct_ce_1 += correct_ce_1_
+			correct_ce_5 += correct_ce_5_
+			correct_sim_1 += correct_sim_1_
+			correct_sim_5 += correct_sim_5_
+			correct_mix_1 += correct_mix_1_
+			correct_mix_5 += correct_mix_5_
+
+	print('\nCE Top 1 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct_ce_1/len(testset)))
+	print('\nCE Top 5 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct_ce_5/len(testset)))
+	print('\nSIM Top 1 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct_sim_1/len(testset)))
+	print('\nSIM Top 5 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct_sim_5/len(testset)))
+	print('\nMIX Top 1 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct_mix_1/len(testset)))
+	print('\nMIX Top 5 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct_mix_5/len(testset)))
 
