@@ -9,6 +9,38 @@ import sys
 import pickle
 from time import sleep
 
+def get_centroids(embeddings, targets, num_classes):
+
+	all_ones, counts = torch.ones(embeddings.size(0)).to(embeddings.device), torch.zeros(num_classes).to(embeddings.device)
+	centroids = torch.zeros(num_classes, embeddings.size(-1)).to(embeddings.device)
+
+	with torch.no_grad():
+
+		counts.scatter_add_(dim=0, index=targets, src=all_ones)
+		counts_corrected = torch.max(counts, torch.ones_like(counts))
+		mask = 1.-torch.abs(counts_corrected-counts).unsqueeze(-1).expand_as(centroids)
+		centroids.scatter_add_(dim=0, index=targets.unsqueeze(-1).expand_as(embeddings), src=embeddings).div_(counts_corrected.unsqueeze_(-1))
+
+	return centroids, mask
+
+def set_np_randomseed(worker_id):
+	np.random.seed(np.random.get_state()[1][0]+worker_id)
+
+def get_freer_gpu(trials=10):
+	sleep(5)
+	for j in range(trials):
+		os.system('nvidia-smi -q -d Memory |grep -A4 GPU|grep Free >tmp')
+		memory_available = [int(x.split()[2]) for x in open('tmp', 'r').readlines()]
+		dev_ = torch.device('cuda:'+str(np.argmax(memory_available)))
+		try:
+			a = torch.rand(1).cuda(dev_)
+			return dev_
+		except:
+			pass
+
+	print('NO GPU AVAILABLE!!!')
+	exit(1)
+
 def parse_args_for_log(args):
 	args_dict = dict(vars(args))
 	for arg_key in args_dict:
@@ -16,6 +48,17 @@ def parse_args_for_log(args):
 			args_dict[arg_key] = 'None'
 
 	return args_dict
+
+def prep_feats(data_, min_nb_frames=100):
+
+	features = data_.T
+
+	if features.shape[1]<min_nb_frames:
+		mul = int(np.ceil(min_nb_frames/features.shape[1]))
+		features = np.tile(features, (1, mul))
+		features = features[:, :min_nb_frames]
+
+	return torch.from_numpy(features[np.newaxis, np.newaxis, :, :]).float()
 
 def get_classifier_config_from_cp(ckpt):
 	keys=ckpt['model_state'].keys()

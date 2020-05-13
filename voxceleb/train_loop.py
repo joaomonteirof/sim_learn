@@ -11,7 +11,7 @@ from utils.utils import compute_eer
 
 class TrainLoop(object):
 
-	def __init__(self, model, optimizer, train_loader, valid_loader, max_gnorm=10.0, label_smoothing=0.0, verbose=-1, device=0, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, pretrain=False, ablation=False, cuda=True, logger=None):
+	def __init__(self, model, optimizer, train_loader, valid_loader, max_gnorm=10.0, label_smoothing=0.0, verbose=-1, device=0, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True, logger=None):
 		if checkpoint_path is None:
 			# Save to current directory
 			self.checkpoint_path = os.getcwd()
@@ -22,8 +22,8 @@ class TrainLoop(object):
 
 		self.save_epoch_fmt = os.path.join(self.checkpoint_path, cp_name) if cp_name else os.path.join(self.checkpoint_path, 'checkpoint_{}ep.pt')
 		self.cuda_mode = cuda
-		self.pretrain = pretrain
-		self.ablation = ablation
+		self.ablation_sim = ablation_sim
+		self.ablation_ce = ablation_ce
 		self.model = model
 		self.max_gnorm = max_gnorm
 		self.optimizer = optimizer
@@ -36,8 +36,7 @@ class TrainLoop(object):
 		self.save_cp = save_cp
 		self.device = device
 		self.logger = logger
-		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'bin_loss': [], 'bin_loss_batch': []}
-		self.disc_label_smoothing = label_smoothing*0.5
+		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'sim_loss': [], 'sim_loss_batch': []}
 
 		if label_smoothing>0.0:
 			self.ce_criterion = LabelSmoothingLoss(label_smoothing, lbl_set_size=train_loader.dataset.n_speakers)
@@ -67,55 +66,35 @@ class TrainLoop(object):
 			else:
 				train_iter = enumerate(self.train_loader)
 
-			if self.pretrain:
+			train_loss_epoch=0.0
+			ce_loss_epoch=0.0
+			bin_loss_epoch=0.0
+			for t, batch in train_iter:
+				train_loss, ce_loss, sim_loss = self.train_step(batch)
+				self.history['train_loss_batch'].append(train_loss)
+				self.history['ce_loss_batch'].append(ce_loss)
+				self.history['sim_loss_batch'].append(sim_loss)
+				train_loss_epoch+=train_loss
+				ce_loss_epoch+=ce_loss
+				sim_loss_epoch+=sim_loss
+				if self.logger:
+					self.logger.add_scalar('Train/Total train Loss', train_loss, self.total_iters)
+					self.logger.add_scalar('Train/Similarity class. Loss', sim_loss, self.total_iters)
+					self.logger.add_scalar('Train/Cross enropy', ce_loss, self.total_iters)
+					self.logger.add_scalar('Info/LR', self.optimizer.optimizer.param_groups[0]['lr'], self.total_iters)
 
-				ce_epoch=0.0
-				for t, batch in train_iter:
-					ce = self.pretrain_step(batch)
-					self.history['train_loss_batch'].append(ce)
-					ce_epoch+=ce
-					if self.logger:
-						self.logger.add_scalar('Train/Cross entropy', ce, self.total_iters)
-						self.logger.add_scalar('Info/LR', self.optimizer.optimizer.param_groups[0]['lr'], self.total_iters)
+				self.total_iters += 1
 
-					self.total_iters += 1
+			self.history['train_loss'].append(train_loss_epoch/(t+1))
+			self.history['ce_loss'].append(ce_loss_epoch/(t+1))
+			self.history['sim_loss'].append(sim_loss_epoch/(t+1))
 
-				self.history['train_loss'].append(ce_epoch/(t+1))
-
-				if self.verbose>1:
-					print('Train loss: {:0.4f}'.format(self.history['train_loss'][-1]))
-
-			else:
-
-				train_loss_epoch=0.0
-				ce_loss_epoch=0.0
-				bin_loss_epoch=0.0
-				for t, batch in train_iter:
-					train_loss, ce_loss, bin_loss = self.train_step(batch)
-					self.history['train_loss_batch'].append(train_loss)
-					self.history['ce_loss_batch'].append(ce_loss)
-					self.history['bin_loss_batch'].append(bin_loss)
-					train_loss_epoch+=train_loss
-					ce_loss_epoch+=ce_loss
-					bin_loss_epoch+=bin_loss
-					if self.logger:
-						self.logger.add_scalar('Train/Total train Loss', train_loss, self.total_iters)
-						self.logger.add_scalar('Train/Binary class. Loss', bin_loss, self.total_iters)
-						self.logger.add_scalar('Train/Cross enropy', ce_loss, self.total_iters)
-						self.logger.add_scalar('Info/LR', self.optimizer.optimizer.param_groups[0]['lr'], self.total_iters)
-
-					self.total_iters += 1
-
-				self.history['train_loss'].append(train_loss_epoch/(t+1))
-				self.history['ce_loss'].append(ce_loss_epoch/(t+1))
-				self.history['bin_loss'].append(bin_loss_epoch/(t+1))
-
-				if self.verbose>1:
-					print(' ')
-					print('Total train loss: {:0.4f}'.format(self.history['train_loss'][-1]))
-					print('CE loss: {:0.4f}'.format(self.history['ce_loss'][-1]))
-					print('Binary classification loss: {:0.4f}'.format(self.history['bin_loss'][-1]))
-					print(' ')
+			if self.verbose>1:
+				print(' ')
+				print('Total train loss: {:0.4f}'.format(self.history['train_loss'][-1]))
+				print('CE loss: {:0.4f}'.format(self.history['ce_loss'][-1]))
+				print('Similarity classification loss: {:0.4f}'.format(self.history['sim_loss'][-1]))
+				print(' ')
 
 			if self.valid_loader is not None:
 
@@ -149,16 +128,11 @@ class TrainLoop(object):
 					self.logger.add_pr_curve('E2E ROC', labels=labels, predictions=e2e_scores, global_step=self.total_iters-1)
 					self.logger.add_pr_curve('Cosine ROC', labels=labels, predictions=cos_scores, global_step=self.total_iters-1)
 					self.logger.add_pr_curve('Fus ROC', labels=labels, predictions=fus_scores, global_step=self.total_iters-1)
-
-					if emb.shape[0]>20000:
-						idxs = np.random.choice(np.arange(emb.shape[0]), size=20000, replace=False)
-						emb, y_ = emb[idxs, :], y_[idxs]
-
-					self.logger.add_histogram('Valid/Embeddings', values=emb, global_step=self.total_iters-1)
 					self.logger.add_histogram('Valid/COS_Scores', values=cos_scores, global_step=self.total_iters-1)
 					self.logger.add_histogram('Valid/E2E_Scores', values=e2e_scores, global_step=self.total_iters-1)
 					self.logger.add_histogram('Valid/FUS_Scores', values=fus_scores, global_step=self.total_iters-1)
 					self.logger.add_histogram('Valid/Labels', values=labels, global_step=self.total_iters-1)
+					self.logger.add_embedding(mat=self.model.centroids.detach().cpu().numpy(), metadata=np.arange(self.model.centroids.size(0)), global_step=self.total_iters-1)
 
 					if self.verbose>1:
 						self.logger.add_embedding(mat=emb, metadata=list(y_), global_step=self.total_iters-1)
@@ -197,64 +171,23 @@ class TrainLoop(object):
 		self.model.train()
 		self.optimizer.zero_grad()
 
-		utterances, utterances_1, utterances_2, utterances_3, utterances_4, y = batch
+		x, y = batch
 
-		utterances = torch.cat([utterances, utterances_1, utterances_2, utterances_3, utterances_4], dim=0)
-		y = torch.cat(5*[y], dim=0).squeeze().contiguous()
+		x = x.to(self.device)
+		y = y.to(self.device)
 
-		ridx = np.random.randint(utterances.size(3)//4, utterances.size(3))
-		utterances = utterances[:,:,:,:ridx].contiguous()
+		embeddings = self.model.forward(x)
 
-		if self.cuda_mode:
-			utterances = utterances.to(self.device, non_blocking=True)
-			y = y.to(self.device, non_blocking=True)
+		self.model.update_centroids(embeddings, y)
 
-		out, embeddings = self.model.forward(utterances)
-		out_norm = F.normalize(out, p=2, dim=1)
-
-		if not self.ablation:
-			ce_loss = self.ce_criterion(self.model.out_proj(out_norm, y), y)
+		if not self.ablation_ce:
+			ce_loss = self.ce_criterion(self.model.out_proj(embeddings, y), y)
 		else:
 			ce_loss = 0.0
 
-		# Get all triplets now for bin classifier
-		triplets_idx = self.harvester.get_triplets(out_norm.detach(), y)
+		sim_loss = self.ce_criterion(self.model.compute_logits(embeddings, ablation=self.ablation_sim), y)
 
-		if self.cuda_mode:
-			triplets_idx = triplets_idx.to(self.device, non_blocking=True)
-
-		try:
-
-			emb_a = torch.index_select(embeddings, 0, triplets_idx[:, 0])
-			emb_p = torch.index_select(embeddings, 0, triplets_idx[:, 1])
-			emb_n = torch.index_select(embeddings, 0, triplets_idx[:, 2])
-
-			emb_ap = torch.cat([emb_a, emb_p],1)
-			emb_an = torch.cat([emb_a, emb_n],1)
-			emb_ = torch.cat([emb_ap, emb_an],0)
-
-			y_ = torch.cat([torch.rand(emb_ap.size(0))*self.disc_label_smoothing+(1.0-self.disc_label_smoothing), torch.rand(emb_an.size(0))*self.disc_label_smoothing],0) if isinstance(self.ce_criterion, LabelSmoothingLoss) else torch.cat([torch.ones(emb_ap.size(0)), torch.zeros(emb_an.size(0))],0)
-
-			if isinstance(self.ce_criterion, LabelSmoothingLoss):
-				y_ = torch.clamp(y_, min=0.0, max=1.0)
-
-			if self.cuda_mode:
-				y_ = y_.to(self.device, non_blocking=True)
-
-			loss_bin = 0.0
-			pred_bin = self.model.forward_bin(emb_)
-
-			if self.model.ndiscriminators>1:
-				for pred in pred_bin:
-					loss_bin += torch.nn.BCELoss()(pred.squeeze(), y_)
-			else:
-				loss_bin = torch.nn.BCELoss()(pred_bin.squeeze(), y_)
-
-		except IndexError:
-
-			loss_bin = torch.ones(1).to(self.device, non_blocking=True)
-
-		loss = ce_loss + loss_bin
+		loss = ce_loss + sim_loss
 		loss.backward()
 		grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_gnorm)
 		self.optimizer.step()
@@ -262,33 +195,7 @@ class TrainLoop(object):
 		if self.logger:
 			self.logger.add_scalar('Info/Grad_norm', grad_norm, self.total_iters)
 
-		return loss.item(), ce_loss.item() if not self.ablation else 0.0, loss_bin.item()/self.model.ndiscriminators
-
-	def pretrain_step(self, batch):
-
-		self.model.train()
-		self.optimizer.zero_grad()
-
-		utterances, utterances_1, utterances_2, utterances_3, utterances_4, y = batch
-
-		utterances = torch.cat([utterances, utterances_1, utterances_2, utterances_3, utterances_4], dim=0)
-		y = torch.cat(5*[y], dim=0).squeeze().contiguous()
-
-		ridx = np.random.randint(utterances.size(3)//4, utterances.size(3))
-		utterances = utterances[:,:,:,:ridx].contiguous()
-
-		if self.cuda_mode:
-			utt, y = utt.to(self.device), y.to(self.device).squeeze()
-
-		out, embeddings = self.model.forward(utt)
-		out_norm = F.normalize(out, p=2, dim=1)
-
-		loss = F.self.ce_criterion(self.model.out_proj(out_norm, y), y)
-
-		loss.backward()
-		self.optimizer.step()
-		return loss.item()
-
+		return loss.item(), 0.0 if self.ablation_ce else ce_loss.item(), sim_loss.item()
 
 	def valid(self, batch):
 
@@ -296,23 +203,16 @@ class TrainLoop(object):
 
 		with torch.no_grad():
 
-			utterances, utterances_1, utterances_2, utterances_3, utterances_4, y = batch
-
-			utterances = torch.cat([utterances, utterances_1, utterances_2, utterances_3, utterances_4], dim=0)
-			y = torch.cat(5*[y], dim=0).squeeze().contiguous()
-
-			ridx = np.random.randint(utterances.size(3)//4, utterances.size(3))
-			utterances = utterances[:,:,:,:ridx].contiguous()
+			x, y = batch
 
 			if self.cuda_mode:
-				utterances = utterances.to(self.device)
+				x = x.to(self.device)
 				y = y.to(self.device)
 
-			out, embeddings = self.model.forward(utterances)
-			out_norm = F.normalize(out, p=2, dim=1)
+			embeddings = self.model.forward(x)
 
 			# Get all triplets now for bin classifier
-			triplets_idx = self.harvester.get_triplets(out_norm.detach(), y)
+			triplets_idx = self.harvester.get_triplets(embeddings.detach(), y)
 			triplets_idx = triplets_idx.to(self.device)
 
 			emb_a = torch.index_select(embeddings, 0, triplets_idx[:, 0])
@@ -341,17 +241,16 @@ class TrainLoop(object):
 			print('Checkpointing...')
 		ckpt = {'model_state': self.model.state_dict(),
 		'optimizer_state': self.optimizer.state_dict(),
-		'ndiscriminators': self.model.ndiscriminators,
-		'r_proj_size': self.model.r_proj_size,
 		'dropout_prob': self.model.dropout_prob,
 		'n_hidden': self.model.n_hidden,
 		'hidden_size': self.model.hidden_size,
-		'latent_size': self.model.latent_size,
+		'emb_size': self.model.emb_size,
 		'sm_type': self.model.sm_type,
 		'ncoef': self.model.ncoef,
 		'history': self.history,
 		'total_iters': self.total_iters,
-		'cur_epoch': self.cur_epoch}
+		'cur_epoch': self.cur_epoch,
+		'centroids': self.model.centroids}
 		try:
 			torch.save(ckpt, self.save_epoch_fmt.format(self.cur_epoch))
 		except:
@@ -364,6 +263,7 @@ class TrainLoop(object):
 			ckpt = torch.load(ckpt, map_location = lambda storage, loc: storage)
 			# Load model state
 			self.model.load_state_dict(ckpt['model_state'])
+			self.model.centroids = ckpt['centroids']
 			# Load optimizer state
 			self.optimizer.load_state_dict(ckpt['optimizer_state'])
 			self.optimizer.step_num = ckpt['total_iters']
@@ -373,15 +273,5 @@ class TrainLoop(object):
 			self.cur_epoch = ckpt['cur_epoch']
 			if self.cuda_mode:
 				self.model = self.model.to(self.device)
-			if self.model.ndiscriminators > 1 and self.model.r_proj_size > 0:
-				for disc in self.model.classifier:
-					disc[0].weight.requires_grad = False
-
 		else:
 			print('No checkpoint found at: {}'.format(ckpt))
-
-	def print_grad_norms(self):
-		norm = 0.0
-		for params in list(self.model.parameters()):
-			norm+=params.grad.norm(2).item()
-		print('Sum of grads norms: {}'.format(norm))

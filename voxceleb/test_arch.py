@@ -9,84 +9,45 @@ import model as model_
 
 # Training settings
 parser = argparse.ArgumentParser(description='Test new architectures')
-parser.add_argument('--model', choices=['resnet_stats', 'resnet_mfcc', 'resnet_lstm', 'resnet_small', 'resnet_large', 'TDNN', 'all'], default='resnet_lstm', help='Model arch according to input type')
+parser.add_argument('--model', choices=['TDNN', 'TDNN_multipool'], default='TDNN', help='Model')
 parser.add_argument('--ncoef', type=int, default=23, metavar='N', help='number of MFCCs (default: 23)')
-parser.add_argument('--ndiscriminators', type=int, default=1, metavar='N', help='number of discriminators (default: 1)')
-parser.add_argument('--rproj-size', type=int, default=-1, metavar='S', help='Random projection size - active if greater than 1')
-parser.add_argument('--latent-size', type=int, default=256, metavar='S', help='latent layer dimension (default: 256)')
+parser.add_argument('--batch-size', type=int, default=5, metavar='N', help='batch size')
+parser.add_argument('--ablation-sim', action='store_true', default=False, help='Disables similarity learning')
+parser.add_argument('--emb-size', type=int, default=256, metavar='S', help='latent layer dimension (default: 256)')
 parser.add_argument('--hidden-size', type=int, default=512, metavar='S', help='latent layer dimension (default: 512)')
 parser.add_argument('--n-hidden', type=int, default=1, metavar='N', help='maximum number of frames per utterance (default: 1)')
+parser.add_argument('--n-speakers', type=int, default=100, metavar='N', help='Number of speakers')
+parser.add_argument('--softmax', choices=['softmax', 'am_softmax'], default='softmax', help='Softmax type')
 args = parser.parse_args()
 
-if args.model == 'resnet_stats' or  args.model == 'all':
-	batch = torch.rand(3, 1, args.ncoef, 200)
-	model = model_.ResNet_stats(n_z=args.latent_size, nh=args.n_hidden, n_h=args.hidden_size, proj_size=100, ncoef=args.ncoef, ndiscriminators=args.ndiscriminators, r_proj_size=args.rproj_size)
-	print('resnet_stats')
-	mu, emb = model.forward(batch)
-	print(mu.size())
-	emb = torch.cat([emb,emb],1)
-	print(emb.size())
-	pred = model.forward_bin(emb)
-	print(pred)
-	scores_p = model.forward_bin(emb)
-	print(scores_p)
-if args.model == 'resnet_mfcc' or  args.model == 'all':
-	batch = torch.rand(3, 1, args.ncoef, 200)
-	model = model_.ResNet_mfcc(n_z=args.latent_size, nh=args.n_hidden, n_h=args.hidden_size, proj_size=100, ncoef=args.ncoef, ndiscriminators=args.ndiscriminators, r_proj_size=args.rproj_size)
-	print('resnet_mfcc')
-	mu, emb = model.forward(batch)
-	print(mu.size())
-	emb = torch.cat([emb,emb],1)
-	print(emb.size())
-	pred = model.forward_bin(emb)
-	print(pred)
-	scores_p = model.forward_bin(emb)
-	print(scores_p)
-if args.model == 'resnet_lstm' or  args.model == 'all':
-	batch = torch.rand(3, 1, args.ncoef, 200)
-	model = model_.ResNet_lstm(n_z=args.latent_size, nh=args.n_hidden, n_h=args.hidden_size, proj_size=100, ncoef=args.ncoef, ndiscriminators=args.ndiscriminators, r_proj_size=args.rproj_size)
-	print('resnet_lstm')
-	mu, emb = model.forward(batch)
-	print(mu.size())
-	emb = torch.cat([emb,emb],1)
-	print(emb.size())
-	pred = model.forward_bin(emb)
-	print(pred)
-	scores_p = model.forward_bin(emb)
-	print(scores_p)
-if args.model == 'resnet_small' or  args.model == 'all':
-	batch = torch.rand(3, 1, args.ncoef, 200)
-	model = model_.ResNet_small(n_z=args.latent_size, nh=args.n_hidden, n_h=args.hidden_size, proj_size=100, ncoef=args.ncoef, ndiscriminators=args.ndiscriminators, r_proj_size=args.rproj_size)
-	print('resnet_small')
-	mu, emb = model.forward(batch)
-	print(mu.size())
-	emb = torch.cat([emb,emb],1)
-	print(emb.size())
-	pred = model.forward_bin(emb)
-	print(pred)
-	scores_p = model.forward_bin(emb)
-	print(scores_p)
-if args.model == 'resnet_large' or  args.model == 'all':
-	batch = torch.rand(3, 1, args.ncoef, 200)
-	model = model_.ResNet_large(n_z=args.latent_size, nh=args.n_hidden, n_h=args.hidden_size, proj_size=100, ncoef=args.ncoef, ndiscriminators=args.ndiscriminators, r_proj_size=args.rproj_size)
-	print('resnet_large')
-	mu, emb = model.forward(batch)
-	print(mu.size())
-	emb = torch.cat([emb,emb],1)
-	print(emb.size())
-	pred = model.forward_bin(emb)
-	print(pred)
-	scores_p = model.forward_bin(emb)
-	print(scores_p)
-if args.model == 'TDNN' or  args.model == 'all':
-	batch = torch.rand(3, 1, args.ncoef, 200)
-	model = model_.TDNN(n_z=args.latent_size, nh=args.n_hidden, n_h=args.hidden_size, proj_size=100, ncoef=args.ncoef, ndiscriminators=args.ndiscriminators, r_proj_size=args.rproj_size)
-	print('TDNN')
-	mu, emb = model.forward(batch)
-	print(mu.size())
-	emb = torch.cat([emb,emb],1)
-	print(emb.size())
-	pred = model.forward_bin(emb)
-	print(pred)
-	scores_p = model.forward_bin(emb)
-	print(scores_p)
+if args.model == 'TDNN':
+	model = model_.TDNN(n_z=args.emb_size, nh=args.n_hidden, n_h=args.hidden_size, n_speakers=args.n_speakers, ncoef=args.ncoef, sm_type=args.softmax)
+elif args.model == 'TDNN_multipool':
+	model = model_.TDNN_multipool(n_z=args.emb_size, nh=args.n_hidden, n_h=args.hidden_size, n_speakers=args.n_speakers, ncoef=args.ncoef, sm_type=args.softmax)
+
+batch = torch.rand(args.batch_size, 1, args.ncoef, 200)
+
+emb = model.forward(batch)
+
+print('\nEmbeddings: ', emb.size())
+
+out = model.out_proj(emb)
+
+print('Auxiliary outputs: ', out.size())
+
+print('Centroids prior to update: ', model.centroids.size())
+
+model.update_centroids(emb, torch.randint(10, (args.batch_size,)).long())
+
+print('Centroids post update: ', model.centroids.size())
+
+logits = model.compute_logits(emb, ablation=args.ablation_sim)
+
+print('Logits: ', logits.size(), '\n')
+
+loss_ce = torch.nn.functional.cross_entropy(out, torch.ones(out.size(0)).long())
+loss_sim = torch.nn.functional.cross_entropy(logits, torch.ones(out.size(0)).long())
+loss = loss_ce+loss_sim
+loss.backward()
+
+print('Losses (ce, sim, all): {}, {}, {} \n'.format(loss_ce, loss_sim, loss))

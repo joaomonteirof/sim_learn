@@ -143,7 +143,11 @@ class TrainLoop(object):
 
 		loss = ce_loss + sim_loss
 		loss.backward()
+		grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_gnorm)
 		self.optimizer.step()
+
+		if self.logger:
+			self.logger.add_scalar('Info/Grad_norm', grad_norm, self.total_iters)
 
 		return loss.item(), 0.0 if self.ablation_ce else ce_loss.item(), sim_loss.item()
 

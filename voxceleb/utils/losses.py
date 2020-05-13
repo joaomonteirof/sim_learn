@@ -26,6 +26,7 @@ class AMSoftmax(nn.Module):
 	def forward(self, embeddings, target):
 
 		w_norm = F.normalize(self.w, p=2, dim=0)
+		embeddings = F.normalize(embeddings, p=2, dim=1)
 
 		cos_theta = embeddings.mm(w_norm)
 		cos_theta = torch.clamp(cos_theta, -1.0, 1.0)

@@ -7,6 +7,79 @@ import os
 import subprocess
 import shlex
 from utils.utils import strided_app
+import random
+
+def collater(batch):
+
+	utterances, labels = [], []
+
+	for el in batch:
+		utterances_sample, y = el[:-1], el[-1]
+
+		utterances.append( torch.cat([utt.unsqueeze(0) for utt in utterances_sample], dim=0) )
+		labels.append( torch.cat(5*[y], dim=0).squeeze().contiguous() )
+
+	utterances, labels = torch.cat(utterances, dim=0), torch.cat(labels, dim=0)
+
+	ridx = np.random.randint(utterances.size(3)//4, utterances.size(3))
+	utterances = utterances[:,:,:,:ridx].contiguous()
+
+	return utterances, labels
+
+def augment(example):
+
+	with torch.no_grad():
+
+		if random.rand()>0.5:
+			example = freq_mask(example, F=10, dim=1)
+		if random.rand()>0.5:
+			example = freq_mask(example, F=50, dim=2)
+		if random.rand()>0.5:
+			example += torch.randn_like(example)*random.choice([1e-2, 1e-3, 1e-4, 1e-5])
+
+	return example
+
+def freq_mask(spec, F=30, num_masks=1, replace_with_zero=False, dim=1):
+	"""Frequency masking
+
+	adapted from https://espnet.github.io/espnet/_modules/espnet/utils/spec_augment.html
+
+	:param torch.Tensor spec: input tensor with shape (T, dim)
+	:param int F: maximum width of each mask
+	:param int num_masks: number of masks
+	:param bool replace_with_zero: if True, masked parts will be filled with 0,
+		if False, filled with mean
+	:param int dim: 1 or 2 indicating to which axis the mask corresponds
+	"""
+
+	assert dim==1 or dim==2, 'Only 1 or 2 are valid values for dim!'
+
+	with torch.no_grad():
+
+		cloned = spec.clone()
+		num_bins = cloned.shape[dim]
+
+		for i in range(0, num_masks):
+			f = random.randrange(0, F)
+			f_zero = random.randrange(0, num_bins - f)
+
+			# avoids randrange error if values are equal and range is empty
+			if f_zero == f_zero + f:
+				return cloned
+
+			mask_end = random.randrange(f_zero, f_zero + f)
+			if replace_with_zero:
+				if dim==1:
+					cloned[:, f_zero:mask_end, :] = 0.0
+				elif dim==2:
+					cloned[:, :, f_zero:mask_end] = 0.0
+			else:
+				if dim==1:
+					cloned[:, f_zero:mask_end, :] = cloned.mean()
+				elif dim==2:
+					cloned[:, :, f_zero:mask_end] = cloned.mean()
+
+	return cloned
 
 class Loader(Dataset):
 
@@ -27,13 +100,13 @@ class Loader(Dataset):
 
 		if not self.open_file: self.open_file = h5py.File(self.hdf5_name, 'r')
 
-		utt_1_data = torch.from_numpy( self.prep_utterance( self.open_file[spk][utt_1] ) )
-		utt_2_data = torch.from_numpy( self.prep_utterance( self.open_file[spk][utt_2] ) )
-		utt_3_data = torch.from_numpy( self.prep_utterance( self.open_file[spk][utt_3] ) )
-		utt_4_data = torch.from_numpy( self.prep_utterance( self.open_file[spk][utt_4] ) )
-		utt_5_data = torch.from_numpy( self.prep_utterance( self.open_file[spk][utt_5] ) )
+		utt_1_data = self.prep_utterance( self.open_file[spk][utt_1] )
+		utt_2_data = self.prep_utterance( self.open_file[spk][utt_2] )
+		utt_3_data = self.prep_utterance( self.open_file[spk][utt_3] )
+		utt_4_data = self.prep_utterance( self.open_file[spk][utt_4] )
+		utt_5_data = self.prep_utterance( self.open_file[spk][utt_5] )
 
-		return utt_1_data.contiguous(), utt_2_data.contiguous(), utt_3_data.contiguous(), utt_4_data.contiguous(), utt_5_data, y
+		return utt_1_data, utt_2_data, utt_3_data, utt_4_data, utt_5_data, y
 
 	def __len__(self):
 		return len(self.utt_list)
@@ -47,6 +120,9 @@ class Loader(Dataset):
 			mul = int(np.ceil(self.max_nb_frames/data.shape[-1]))
 			data_ = np.tile(data, (1, 1, mul))
 			data_ = data_[:, :, :self.max_nb_frames]
+
+		data_ = torch.from_numpy(data_).contiguous()
+		data_ = augment(data_)
 
 		return data_
 
@@ -181,11 +257,3 @@ if __name__=='__main__':
 
 	for batch in loader:
 		utt_1, utt_2, utt_3, utt_4, utt_5, spk, y = batch
-
-		for i in range(len(batch[-1])):
-			if spk[i] in spk2utt:
-				spk2utt[spk[i]]+=[utt_1[i], utt_2[i], utt_3[i], utt_4[i], utt_5[i]]
-			else:
-				spk2utt[spk[i]]=[utt_1[i], utt_2[i], utt_3[i], utt_4[i], utt_5[i]]
-
-	compare_spk2utts(loader.dataset.spk2utt, spk2utt)

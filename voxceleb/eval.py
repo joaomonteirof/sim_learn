@@ -13,17 +13,6 @@ import pathlib
 
 from utils.utils import *
 
-def prep_feats(data_, min_nb_frames=100):
-
-	features = data_.T
-
-	if features.shape[1]<min_nb_frames:
-		mul = int(np.ceil(min_nb_frames/features.shape[1]))
-		features = np.tile(features, (1, mul))
-		features = features[:, :min_nb_frames]
-
-	return torch.from_numpy(features[np.newaxis, np.newaxis, :, :]).float()
-
 if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser(description='Evaluation')
@@ -31,11 +20,10 @@ if __name__ == '__main__':
 	parser.add_argument('--trials-path', type=str, default=None, help='Path to trials file. If None, will be created from spk2utt')
 	parser.add_argument('--spk2utt', type=str, default=None, metavar='Path', help='Path to spk2utt file. Will be used in case no trials file is provided')
 	parser.add_argument('--cp-path', type=str, default=None, metavar='Path', help='Path for file containing model')
-	parser.add_argument('--model', choices=['resnet_stats', 'resnet_mfcc', 'resnet_lstm', 'resnet_small', 'resnet_large', 'TDNN'], default='resnet_lstm', help='Model arch according to input type')
+	parser.add_argument('--model', choices=['TDNN', 'TDNN_multipool'], default='TDNN', help='Model')
 	parser.add_argument('--out-path', type=str, default='./', metavar='Path', help='Path for saving computed scores')
 	parser.add_argument('--out-prefix', type=str, default=None, metavar='Path', help='Prefix to be added to score files')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
-	parser.add_argument('--inner', action='store_true', default=True, help='Inner layer as embedding')
 	args = parser.parse_args()
 	args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 
@@ -44,34 +32,20 @@ if __name__ == '__main__':
 
 	pathlib.Path(args.out_path).mkdir(parents=True, exist_ok=True)
 
-	print('Cuda Mode is: {}'.format(args.cuda))
+	print('Cuda Mode is: {}\n'.format(args.cuda))
 
 	if args.cuda:
 		device = get_freer_gpu()
 
 	ckpt = torch.load(args.cp_path, map_location = lambda storage, loc: storage)
 
-	if args.model == 'resnet_mfcc':
-		model = model_.ResNet_mfcc(n_z=ckpt['latent_size'], nh=ckpt['n_hidden'], n_h=ckpt['hidden_size'], proj_size=ckpt['r_proj_size'], ncoef=ckpt['ncoef'], ndiscriminators=ckpt['ndiscriminators'])
-	elif args.model == 'resnet_lstm':
-		model = model_.ResNet_lstm(n_z=ckpt['latent_size'], nh=ckpt['n_hidden'], n_h=ckpt['hidden_size'], proj_size=ckpt['r_proj_size'], ncoef=ckpt['ncoef'], ndiscriminators=ckpt['ndiscriminators'])
-	elif args.model == 'resnet_stats':
-		model = model_.ResNet_stats(n_z=ckpt['latent_size'], nh=ckpt['n_hidden'], n_h=ckpt['hidden_size'], proj_size=ckpt['r_proj_size'], ncoef=ckpt['ncoef'], ndiscriminators=ckpt['ndiscriminators'])
-	elif args.model == 'resnet_small':
-		model = model_.ResNet_small(n_z=ckpt['latent_size'], nh=ckpt['n_hidden'], n_h=ckpt['hidden_size'], proj_size=ckpt['r_proj_size'], ncoef=ckpt['ncoef'], ndiscriminators=ckpt['ndiscriminators'])
-	elif args.model == 'resnet_large':
-		model = model_.ResNet_large(n_z=ckpt['latent_size'], nh=ckpt['n_hidden'], n_h=ckpt['hidden_size'], proj_size=ckpt['r_proj_size'], ncoef=ckpt['ncoef'], ndiscriminators=ckpt['ndiscriminators'])
-	elif args.model == 'TDNN':
-		model = model_.TDNN(n_z=ckpt['latent_size'], nh=ckpt['n_hidden'], n_h=ckpt['hidden_size'], proj_size=ckpt['r_proj_size'], ncoef=ckpt['ncoef'], ndiscriminators=ckpt['ndiscriminators'])
+	if args.model == 'TDNN':
+		model = model_.TDNN(n_z=ckpt['emb_size'], nh=ckpt['n_hidden'], n_h=ckpt['hidden_size'], ncoef=ckpt['ncoef'])
+	if args.model == 'TDNN_multipool':
+		model = model_.TDNN_multipool(n_z=ckpt['emb_size'], nh=ckpt['n_hidden'], n_h=ckpt['hidden_size'], ncoef=ckpt['ncoef'])
 
 
-	try:
-		model.load_state_dict(ckpt['model_state'], strict=True)
-	except RuntimeError as err:
-		print("Runtime Error: {0}".format(err))
-	except:
-		print("Unexpected error:", sys.exc_info()[0])
-		raise
+	print(model.load_state_dict(ckpt['model_state'], strict=False))
 
 	model.eval()
 	if args.cuda:
@@ -121,10 +95,8 @@ if __name__ == '__main__':
 				if args.cuda:
 					enroll_utt_data = enroll_utt_data.to(device)
 
-				emb_enroll = model.forward(enroll_utt_data)[1].detach() if args.inner else model.forward(enroll_utt_data)[0].detach()
+				emb_enroll = model.forward(enroll_utt_data).detach()
 				mem_embeddings[enroll_utt] = emb_enroll
-
-
 
 			test_utt = utterances_test[i]
 
@@ -138,16 +110,12 @@ if __name__ == '__main__':
 					enroll_utt_data = enroll_utt_data.to(device)
 					test_utt_data = test_utt_data.to(device)
 
-				emb_test = model.forward(test_utt_data)[1].detach() if args.inner else model.forward(test_utt_data)[0].detach()
+				emb_test = model.forward(test_utt_data).detach()
 				mem_embeddings[test_utt] = emb_test
 
-			pred = model.forward_bin(torch.cat([emb_enroll, emb_test],1))
+			pred = model.forward_bin(emb_enroll, emb_test)
 
-			if model.ndiscriminators>1:
-				e2e_scores.append( torch.cat(pred, 1).mean(1).squeeze().item() )
-			else:
-				e2e_scores.append( pred.squeeze().item() )
-
+			e2e_scores.append( pred.squeeze().item() )
 			cos_scores.append( 0.5*(torch.nn.functional.cosine_similarity(emb_enroll, emb_test).mean().item()+1.) )
 			fus_scores.append( (e2e_scores[-1]+cos_scores[-1])*0.5 )
 
