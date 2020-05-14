@@ -38,7 +38,7 @@ class TrainLoop(object):
 		self.save_cp = save_cp
 		self.device = next(self.model.parameters()).device
 		self.logger = logger
-		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'bin_loss': [], 'bin_loss_batch': []}
+		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'sim_loss': [], 'sim_loss_batch': []}
 		self.disc_label_smoothing = label_smoothing
 		self.best_e2e_eer, self.best_cos_eer = np.inf, np.inf
 
