@@ -29,8 +29,8 @@ class TrainLoop(object):
 		self.model = model
 		self.optimizer = optimizer
 		self.max_gnorm = max_gnorm
-		self.ablation_sim = ablation_sim
-		self.ablation_ce = ablation_ce
+		self.train_loader = train_loader
+		self.valid_loader = valid_loader
 		self.total_iters = 0
 		self.cur_epoch = 0
 		self.harvester = AllTripletSelector()
