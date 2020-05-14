@@ -14,7 +14,7 @@ import os
 import sys
 from optimizer import TransformerOptimizer
 from torch.utils.tensorboard import SummaryWriter
-from utils import mean, std, set_np_randomseed, get_freer_gpu
+from utils import mean, std, set_np_randomseed, get_freer_gpu, parse_args_for_log
 
 # Training settings
 parser = argparse.ArgumentParser(description='Imagenet classification')
