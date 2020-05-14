@@ -47,6 +47,14 @@ def correct_topk(output, target, topk=(1,)):
 			res.append(correct_k)
 		return res
 
+def parse_args_for_log(args):
+	args_dict = dict(vars(args))
+	for arg_key in args_dict:
+		if args_dict[arg_key] is None:
+			args_dict[arg_key] = 'None'
+
+	return args_dict
+
 def set_np_randomseed(worker_id):
 	np.random.seed(np.random.get_state()[1][0]+worker_id)
 
