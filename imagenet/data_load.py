@@ -16,7 +16,7 @@ def collater(batch):
 		examples_sample, y = el[:-1], el[-1]
 
 		examples.append( torch.cat([ex.unsqueeze(0) for ex in examples_sample], dim=0) )
-		labels.append( torch.cat(5*[y], dim=0).squeeze().contiguous() )
+		labels.append( torch.cat(len(examples_sample)*[y], dim=0).squeeze().contiguous() )
 
 	examples, labels = torch.cat(examples, dim=0), torch.cat(labels, dim=0)
 

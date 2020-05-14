@@ -17,7 +17,7 @@ def collater(batch):
 		utterances_sample, y = el[:-1], el[-1]
 
 		utterances.append( torch.cat([utt.unsqueeze(0) for utt in utterances_sample], dim=0) )
-		labels.append( torch.cat(5*[y], dim=0).squeeze().contiguous() )
+		labels.append( torch.cat(len(utterances_sample)*[y], dim=0).squeeze().contiguous() )
 
 	utterances, labels = torch.cat(utterances, dim=0), torch.cat(labels, dim=0)
 
