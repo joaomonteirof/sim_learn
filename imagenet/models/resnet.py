@@ -127,7 +127,7 @@ class ResNet(nn.Module):
 
 		self.centroids_lambda = centroids_lambda
 
-		self.centroids = torch.rand(10, 512*block.expansion)
+		self.centroids = torch.rand(self.n_classes, 512*block.expansion)
 		self.centroids.requires_grad = False
 
 		self.inplanes = 64
@@ -245,7 +245,7 @@ class ResNet(nn.Module):
 
 		self.centroids =  self.centroids.to(embeddings.device)
 
-		new_centroids, mask = get_centroids(embeddings, targets, 10)
+		new_centroids, mask = get_centroids(embeddings, targets, self.n_classes)
 
 		with torch.no_grad():
 			mask *= 1.-self.centroids_lambda

@@ -24,7 +24,7 @@ class VGG(nn.Module):
 		self.n_classes = n_classes
 		self.centroids_lambda = centroids_lambda
 
-		self.centroids = torch.rand(10, 512 * 7 * 7)
+		self.centroids = torch.rand(self.n_classes, 512 * 7 * 7)
 		self.centroids.requires_grad = False
 
 		self.features = self._make_layers(cfg[vgg_name])
@@ -86,7 +86,7 @@ class VGG(nn.Module):
 
 		self.centroids =  self.centroids.to(embeddings.device)
 
-		new_centroids, mask = get_centroids(embeddings, targets, 10)
+		new_centroids, mask = get_centroids(embeddings, targets, self.n_classes)
 
 		with torch.no_grad():
 			mask *= 1.-self.centroids_lambda

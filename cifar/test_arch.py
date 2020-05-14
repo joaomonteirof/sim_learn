@@ -24,9 +24,9 @@ elif args.model == 'densenet':
 	model = densenet.densenet_cifar(nh=args.n_hidden, n_h=args.hidden_size)
 
 
-batch = torch.rand(args.batch_size, 3, 32, 32)
+x, y = torch.rand(args.batch_size, 3, 32, 32), torch.randint(10, (args.batch_size,)).long()
 
-emb = model.forward(batch)
+emb = model.forward(x)
 
 print('\nEmbeddings: ', emb.size())
 
@@ -36,7 +36,7 @@ print('Auxiliary outputs: ', out.size())
 
 print('Centroids prior to update: ', model.centroids.size())
 
-model.update_centroids(emb, torch.randint(10, (args.batch_size,)).long())
+model.update_centroids(emb, y)
 
 print('Centroids post update: ', model.centroids.size())
 
@@ -44,8 +44,8 @@ logits = model.compute_logits(emb, ablation=args.ablation_sim)
 
 print('Logits: ', logits.size(), '\n')
 
-loss_ce = torch.nn.functional.cross_entropy(out, torch.ones(out.size(0)).long())
-loss_sim = torch.nn.functional.cross_entropy(logits, torch.ones(out.size(0)).long())
+loss_ce = torch.nn.functional.cross_entropy(out, y)
+loss_sim = torch.nn.functional.cross_entropy(logits, y)
 loss = loss_ce+loss_sim
 loss.backward()
 

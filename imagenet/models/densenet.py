@@ -47,7 +47,7 @@ class DenseNet(nn.Module):
 		self.centroids_lambda = centroids_lambda
 		self.growth_rate = growth_rate
 
-		self.centroids = torch.rand(10, 1024*6*6)
+		self.centroids = torch.rand(self.n_classes, 1024*6*6)
 		self.centroids.requires_grad = False
 
 		num_planes = 2*growth_rate
@@ -130,7 +130,7 @@ class DenseNet(nn.Module):
 
 		self.centroids =  self.centroids.to(embeddings.device)
 
-		new_centroids, mask = get_centroids(embeddings, targets, 10)
+		new_centroids, mask = get_centroids(embeddings, targets, self.n_classes)
 
 		with torch.no_grad():
 			mask *= 1.-self.centroids_lambda
