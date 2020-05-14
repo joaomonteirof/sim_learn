@@ -8,6 +8,20 @@ import subprocess
 import shlex
 from utils import strided_app
 
+def collater(batch):
+
+	examples, labels = [], []
+
+	for el in batch:
+		examples_sample, y = el[:-1], el[-1]
+
+		examples.append( torch.cat([ex.unsqueeze(0) for ex in examples_sample], dim=0) )
+		labels.append( torch.cat(5*[y], dim=0).squeeze().contiguous() )
+
+	examples, labels = torch.cat(examples, dim=0), torch.cat(labels, dim=0)
+
+	return examples, labels
+
 class Loader(Dataset):
 
 	def __init__(self, hdf5_name, transformation):

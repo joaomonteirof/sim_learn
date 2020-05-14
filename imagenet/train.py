@@ -7,7 +7,7 @@ from train_loop import TrainLoop
 import torch.optim as optim
 from torchvision import datasets, transforms
 from models import vgg, resnet, densenet
-from data_load import Loader
+from data_load import Loader, collater
 import numpy as np
 from time import sleep
 import os
@@ -64,7 +64,7 @@ else:
 	transform_train = transforms.Compose([transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.RandomRotation(10), transforms.RandomPerspective(p=0.1), transforms.RandomGrayscale(p=0.1), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])	
 	trainset = datasets.ImageFolder(args.data_path, transform=transform_train)
 
-train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True)
+train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True, collate_fn=collater)
 
 if args.valid_hdf_path:
 	transform_test = transforms.Compose([transforms.ToPILImage(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
@@ -73,7 +73,7 @@ else:
 	transform_test = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
 	validset = datasets.ImageFolder(args.valid_data_path, transform=transform_test)
 	
-valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=True, num_workers=args.n_workers, pin_memory=True)
+valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=True, num_workers=args.n_workers, pin_memory=True, collate_fn=collater)
 
 args.nclasses = trainset.n_classes if isinstance(trainset, Loader) else len(trainset.classes)
 
