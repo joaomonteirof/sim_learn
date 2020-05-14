@@ -30,11 +30,11 @@ def augment(example):
 
 	with torch.no_grad():
 
-		if random.rand()>0.5:
+		if random.random()>0.5:
 			example = freq_mask(example, F=10, dim=1)
-		if random.rand()>0.5:
+		if random.random()>0.5:
 			example = freq_mask(example, F=50, dim=2)
-		if random.rand()>0.5:
+		if random.random()>0.5:
 			example += torch.randn_like(example)*random.choice([1e-2, 1e-3, 1e-4, 1e-5])
 
 	return example
