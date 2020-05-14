@@ -16,7 +16,7 @@ class StatisticalPooling(nn.Module):
 		return torch.cat((mu, std), dim=1)
 
 class TDNN(nn.Module):
-	def __init__(self, n_z=256, nh=1, n_h=512, ncoef=23, sm_type='softmax', n_speakers=1000, dropout_prob=0.25, centroids_lambda=0.9):
+	def __init__(self, n_z=256, nh=1, n_h=512, ncoef=23, sm_type='softmax', n_speakers=5994, dropout_prob=0.25, centroids_lambda=0.9):
 		super(TDNN, self).__init__()
 
 		self.dropout_prob = dropout_prob
@@ -29,7 +29,7 @@ class TDNN(nn.Module):
 
 		self.centroids_lambda = centroids_lambda
 
-		self.centroids = torch.rand(10, self.emb_size)
+		self.centroids = torch.rand(self.nspeakers, self.emb_size)
 		self.centroids.requires_grad = False
 
 		self.model = nn.Sequential( nn.Conv1d(ncoef, 512, 5, padding=2),
@@ -102,7 +102,7 @@ class TDNN(nn.Module):
 
 		self.centroids =  self.centroids.to(embeddings.device)
 
-		new_centroids, mask = get_centroids(embeddings, targets, 10)
+		new_centroids, mask = get_centroids(embeddings, targets, self.nspeakers)
 
 		with torch.no_grad():
 			mask *= 1.-self.centroids_lambda
@@ -135,7 +135,7 @@ class TDNN(nn.Module):
 				layer.bias.data.zero_()
 
 class TDNN_multipool(nn.Module):
-	def __init__(self, n_z=256, nh=1, n_h=512, ncoef=23, sm_type='softmax', n_speakers=1000, dropout_prob=0.25, centroids_lambda=0.9):
+	def __init__(self, n_z=256, nh=1, n_h=512, ncoef=23, sm_type='softmax', n_speakers=5994, dropout_prob=0.25, centroids_lambda=0.9):
 		super(TDNN_multipool, self).__init__()
 
 		self.dropout_prob = dropout_prob
@@ -148,7 +148,7 @@ class TDNN_multipool(nn.Module):
 
 		self.centroids_lambda = centroids_lambda
 
-		self.centroids = torch.rand(10, self.emb_size)
+		self.centroids = torch.rand(self.nspeakers, self.emb_size)
 		self.centroids.requires_grad = False
 
 		self.model_1 = nn.Sequential( nn.Conv1d(ncoef, 512, 5, padding=2),
@@ -243,7 +243,7 @@ class TDNN_multipool(nn.Module):
 
 		self.centroids =  self.centroids.to(embeddings.device)
 
-		new_centroids, mask = get_centroids(embeddings, targets, 10)
+		new_centroids, mask = get_centroids(embeddings, targets, self.nspeakers)
 
 		with torch.no_grad():
 			mask *= 1.-self.centroids_lambda
