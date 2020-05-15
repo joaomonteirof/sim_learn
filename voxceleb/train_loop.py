@@ -222,12 +222,8 @@ class TrainLoop(object):
 			emb_ap = torch.cat([emb_a, emb_p],1)
 			emb_an = torch.cat([emb_a, emb_n],1)
 
-			if self.model.ndiscriminators>1:
-				e2e_scores_p = torch.cat(self.model.forward_bin(emb_ap), 1).mean(1).squeeze()
-				e2e_scores_n = torch.cat(self.model.forward_bin(emb_an), 1).mean(1).squeeze()
-			else:
-				e2e_scores_p = self.model.forward_bin(emb_ap).squeeze()
-				e2e_scores_n = self.model.forward_bin(emb_an).squeeze()
+			e2e_scores_p = self.model.forward_bin(emb_ap).squeeze()
+			e2e_scores_n = self.model.forward_bin(emb_an).squeeze()
 
 			cos_scores_p = torch.nn.functional.cosine_similarity(emb_a, emb_p)
 			cos_scores_n = torch.nn.functional.cosine_similarity(emb_a, emb_n)
