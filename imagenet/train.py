@@ -12,7 +12,6 @@ import numpy as np
 from time import sleep
 import os
 import sys
-from optimizer import TransformerOptimizer
 from torch.utils.tensorboard import SummaryWriter
 from utils import mean, std, set_np_randomseed, get_freer_gpu, parse_args_for_log
 
@@ -25,7 +24,6 @@ parser.add_argument('--lr', type=float, default=1.0, metavar='LR', help='learnin
 parser.add_argument('--l2', type=float, default=1e-4, metavar='lambda', help='L2 wheight decay coefficient (default: 0.0005)')
 parser.add_argument('--smoothing', type=float, default=0.2, metavar='l', help='Label smoothing (default: 0.2)')
 parser.add_argument('--centroid-smoothing', type=float, default=0.9, metavar='Lamb', help='Moving average parameter for centroids')
-parser.add_argument('--warmup', type=int, default=4000, metavar='N', help='Iterations until reach lr (default: 4000)')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='m', help='Momentum paprameter (default: 0.9)')
 parser.add_argument('--max-gnorm', type=float, default=10., metavar='clip', help='Max gradient norm (default: 10.0)')
 parser.add_argument('--checkpoint-epoch', type=int, default=None, metavar='N', help='epoch to load for checkpointing. If None, training starts from scratch')
@@ -128,7 +126,7 @@ if args.logdir:
 else:
 	writer = None
 
-optimizer = TransformerOptimizer(optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.l2, nesterov=True), lr=args.lr, warmup_steps=args.warmup)
+optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.l2, momentum=args.momentum)
 
 trainer = TrainLoop(model, optimizer, train_loader, valid_loader, max_gnorm=args.max_gnorm, 
 		label_smoothing=args.smoothing, verbose=args.verbose, save_cp=(not args.no_cp), 

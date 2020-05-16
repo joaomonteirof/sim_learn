@@ -25,7 +25,7 @@ def get_centroids(embeddings, targets, num_classes):
 
 	return centroids, mask
 
-def adjust_learning_rate(optimizer, epoch, base_lr, n_epochs, lr_factor, min_lr=1e-8):
+def adjust_learning_rate(optimizer, epoch, base_lr, n_epochs=30, lr_factor=0.1, min_lr=1e-8):
 	"""Sets the learning rate to the initial LR decayed by 10 every n_epochs epochs"""
 	lr = max( base_lr * (lr_factor ** (epoch // n_epochs)), min_lr)
 	for param_group in optimizer.param_groups:
