@@ -95,9 +95,6 @@ elif args.model == 'densenet':
 if args.pretrained_path:
 	if ckpt['sm_type'] == 'am_softmax':
 		del(ckpt['model_state']['out_proj.w'])
-	elif ckpt['sm_type'] == 'softmax':
-		del(ckpt['model_state']['out_proj.w.weight'])
-		del(ckpt['model_state']['out_proj.w.bias'])
 
 	print(model.load_state_dict(ckpt['model_state'], strict=False))
 	print('\n')
