@@ -48,8 +48,6 @@ class TrainLoop(object):
 		if self.valid_loader is not None:
 			self.history['e2e_eer'] = []
 			self.history['cos_eer'] = []
-			self.history['ErrorRate_sim'] = []
-			self.history['ErrorRate_ce'] = []
 
 		if checkpoint_epoch is not None:
 			self.load_checkpoint(self.save_epoch_fmt.format(checkpoint_epoch))
@@ -93,11 +91,10 @@ class TrainLoop(object):
 
 			if self.valid_loader is not None:
 
-				tot_correct_ce, tot_correct_sim, tot_ = 0, 0, 0
 				e2e_scores, cos_scores, labels = None, None, None
 
 				for t, batch in enumerate(self.valid_loader):
-					correct_ce, correct_sim, total, e2e_scores_batch, cos_scores_batch, labels_batch = self.valid(batch)
+					e2e_scores_batch, cos_scores_batch, labels_batch = self.valid(batch)
 
 					try:
 						e2e_scores = np.concatenate([e2e_scores, e2e_scores_batch], 0)
@@ -106,28 +103,20 @@ class TrainLoop(object):
 					except:
 						e2e_scores, cos_scores, labels = e2e_scores_batch, cos_scores_batch, labels_batch
 
-					tot_correct_ce += correct_ce
-					tot_correct_sim += correct_sim
-					tot_ += total
-
 				self.history['e2e_eer'].append(compute_eer(labels, e2e_scores))
 				self.history['cos_eer'].append(compute_eer(labels, cos_scores))
-				self.history['ErrorRate_ce'].append(1.-float(tot_correct_ce)/tot_)
-				self.history['ErrorRate_sim'].append(1.-float(tot_correct_sim)/tot_)
 
 				if self.verbose>0:
 					print(' ')
 					print('Current e2e EER, best e2e EER, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['e2e_eer'][-1], np.min(self.history['e2e_eer']), 1+np.argmin(self.history['e2e_eer'])))
 					print('Current cos EER, best cos EER, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['cos_eer'][-1], np.min(self.history['cos_eer']), 1+np.argmin(self.history['cos_eer'])))
-					print('Current Error rate CE, best Error rate CE, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['ErrorRate_ce'][-1], np.min(self.history['ErrorRate_ce']), 1+np.argmin(self.history['ErrorRate_ce'])))
-					print('Current Error rate SIM, best Error rate SIM, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['ErrorRate_sim'][-1], np.min(self.history['ErrorRate_sim']), 1+np.argmin(self.history['ErrorRate_sim'])))
 
 			if self.verbose>0:
 				print('Current LR: {}'.format(self.optimizer.param_groups[0]['lr']))
 
 			self.cur_epoch += 1
 
-			if self.valid_loader is not None and self.save_cp and (self.cur_epoch % save_every == 0 or self.history['ErrorRate_ce'][-1] < np.min([np.inf]+self.history['ErrorRate_ce'][:-1]) or self.history['ErrorRate_sim'][-1] < np.min([np.inf]+self.history['ErrorRate_sim'][:-1])):
+			if self.valid_loader is not None and self.save_cp and (self.cur_epoch % save_every == 0 or self.history['e2e_eer'][-1] < np.min([np.inf]+self.history['e2e_eer'][:-1]) or self.history['cos_eer'][-1] < np.min([np.inf]+self.history['cos_eer'][:-1])):
 					self.checkpointing()
 			elif self.save_cp and self.cur_epoch % save_every == 0:
 					self.checkpointing()
@@ -140,7 +129,7 @@ class TrainLoop(object):
 				print('Best e2e eer and corresponding epoch: {:0.4f}, {}'.format(np.min(self.history['e2e_eer']), 1+np.argmin(self.history['e2e_eer'])))
 				print('Best cos eer and corresponding epoch: {:0.4f}, {}'.format(np.min(self.history['cos_eer']), 1+np.argmin(self.history['cos_eer'])))
 
-			return [np.min(self.history['e2e_eer']), np.min(self.history['cos_eer']), np.min(self.history['ErrorRate_ce']), np.min(self.history['ErrorRate_sim'])]
+			return [np.min(self.history['e2e_eer']), np.min(self.history['cos_eer'])]
 		else:
 			return [np.min(self.history['train_loss'])]
 
@@ -185,14 +174,6 @@ class TrainLoop(object):
 
 			embeddings = self.model.forward(x)
 
-			out_ce = self.model.out_proj(embeddings, y)
-			pred_ce = F.softmax(out_ce, dim=1).max(1)[1].long()
-			correct_ce = pred_ce.squeeze().eq(y.squeeze()).detach().sum().item()
-
-			out_sim = self.model.compute_logits(embeddings)
-			pred_sim = F.softmax(out_sim, dim=1).max(1)[1].long()
-			correct_sim = pred_sim.squeeze().eq(y.squeeze()).detach().sum().item()
-
 			# Get all triplets now for bin classifier
 			triplets_idx = self.harvester.get_triplets(embeddings.detach(), y)
 			triplets_idx = triplets_idx.to(self.device)
@@ -206,7 +187,7 @@ class TrainLoop(object):
 			cos_scores_p = torch.nn.functional.cosine_similarity(emb_a, emb_p)
 			cos_scores_n = torch.nn.functional.cosine_similarity(emb_a, emb_n)
 
-		return correct_ce, correct_sim, x.size(0), np.concatenate([e2e_scores_p.detach().cpu().numpy(), e2e_scores_n.detach().cpu().numpy()], 0), np.concatenate([cos_scores_p.detach().cpu().numpy(), cos_scores_n.detach().cpu().numpy()], 0), np.concatenate([np.ones(e2e_scores_p.size(0)), np.zeros(e2e_scores_n.size(0))], 0)
+		return np.concatenate([e2e_scores_p.detach().cpu().numpy(), e2e_scores_n.detach().cpu().numpy()], 0), np.concatenate([cos_scores_p.detach().cpu().numpy(), cos_scores_n.detach().cpu().numpy()], 0), np.concatenate([np.ones(e2e_scores_p.size(0)), np.zeros(e2e_scores_n.size(0))], 0)
 
 	def checkpointing(self):
 
