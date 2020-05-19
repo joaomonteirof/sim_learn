@@ -8,7 +8,7 @@ import sys
 import pickle
 from time import sleep
 
-mean, std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
+mean, std = [0.4688, 0.4477, 0.4010], [0.2735, 0.2653, 0.2805]
 
 def get_centroids(embeddings, targets, num_classes):
 
