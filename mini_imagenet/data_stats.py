@@ -16,7 +16,7 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 
 	transform = transforms.Compose([transforms.CenterCrop(84), transforms.ToTensor()])
-	dataset = datasets.ImageFolder(args.path_to_data, transform=transform)
+	dataset = datasets.ImageFolder(args.data_path, transform=transform)
 	dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers)
 
 	data = []
