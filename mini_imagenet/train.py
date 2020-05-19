@@ -50,20 +50,21 @@ if args.cuda:
 if args.hdf_path:
 	transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=4), transforms.RandomHorizontalFlip(), transforms.RandomRotation(10), transforms.RandomPerspective(p=0.1), transforms.RandomGrayscale(p=0.1), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
 	trainset = Loader(args.hdf_path, transform_train)
+	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True, collate_fn=collater)
 else:
 	transform_train = transforms.Compose([transforms.RandomCrop(84, padding=4), transforms.RandomHorizontalFlip(), transforms.RandomRotation(10), transforms.RandomPerspective(p=0.1), transforms.RandomGrayscale(p=0.1), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])	
 	trainset = datasets.ImageFolder(args.data_path, transform=transform_train)
+	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True)
 
-train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True, collate_fn=collater)
 
 if args.valid_hdf_path:
-	transform_test = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=4), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+	transform_test = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
 	validset = Loader(args.valid_hdf_path, transform_test)
+	valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=True, num_workers=args.n_workers, pin_memory=True, collate_fn=collater)
 else:
-	transform_test = transforms.Compose([transforms.RandomCrop(84, padding=4), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+	transform_test = transforms.Compose([transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
 	validset = datasets.ImageFolder(args.valid_data_path, transform=transform_test)
-	
-valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=True, num_workers=args.n_workers, pin_memory=True, collate_fn=collater)
+	valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=True, num_workers=args.n_workers, pin_memory=True)
 
 args.nclasses = trainset.n_classes if isinstance(trainset, Loader) else len(trainset.classes)
 
