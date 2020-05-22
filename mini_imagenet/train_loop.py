@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 from harvester import AllTripletSelector
 from models.losses import LabelSmoothingLoss
-from utils import compute_eer, adjust_learning_rate
+from utils import compute_eer
 
 class TrainLoop(object):
 
@@ -40,14 +40,12 @@ class TrainLoop(object):
 		self.device = next(self.model.parameters()).device
 		self.base_lr = self.optimizer.param_groups[0]['lr']
 		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'sim_loss': [], 'sim_loss_batch': []}
-		self.disc_label_smoothing = label_smoothing*0.5
+		self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, factor=self.lr_factor, patience=self.patience, verbose=True if self.verbose>0 else False, threshold=1e-4, min_lr=1e-7)
 
 		if label_smoothing>0.0:
 			self.ce_criterion = LabelSmoothingLoss(label_smoothing, lbl_set_size=10)
 		else:
 			self.ce_criterion = torch.nn.CrossEntropyLoss()
-
-		self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[10, 150, 250, 350], gamma=0.1)
 
 		if self.valid_loader is not None:
 			self.history['e2e_eer'] = []
@@ -61,7 +59,6 @@ class TrainLoop(object):
 		while (self.cur_epoch < n_epochs):
 
 			np.random.seed()
-			adjust_learning_rate(self.optimizer, self.cur_epoch, self.base_lr, self.patience, self.lr_factor)
 			if self.verbose>0:
 				print(' ')
 				print('Epoch {}/{}'.format(self.cur_epoch+1, n_epochs))
@@ -81,8 +78,6 @@ class TrainLoop(object):
 				ce_loss_epoch+=ce_loss
 				sim_loss_epoch+=sim_loss
 				self.total_iters += 1
-
-			self.scheduler.step()
 
 			self.history['train_loss'].append(train_loss_epoch/(t+1))
 			self.history['ce_loss'].append(ce_loss_epoch/(t+1))
@@ -114,6 +109,8 @@ class TrainLoop(object):
 					print(' ')
 					print('Current e2e EER, best e2e EER, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['e2e_eer'][-1], np.min(self.history['e2e_eer']), 1+np.argmin(self.history['e2e_eer'])))
 					print('Current cos EER, best cos EER, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['cos_eer'][-1], np.min(self.history['cos_eer']), 1+np.argmin(self.history['cos_eer'])))
+
+			self.scheduler.step(min(self.history['e2e_eer'][-1], self.history['cos_eer'][-1]))
 
 			if self.verbose>0:
 				print('Current LR: {}'.format(self.optimizer.param_groups[0]['lr']))
