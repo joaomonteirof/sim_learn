@@ -82,7 +82,7 @@ if args.cuda:
 
 optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.l2, momentum=args.momentum)
 
-trainer = TrainLoop(model, optimizer, train_loader, valid_loader, max_gnorm=args.max_gnorm, patience=args.patience, label_smoothing=args.smoothing,
+trainer = TrainLoop(model, optimizer, train_loader, valid_loader, max_gnorm=args.max_gnorm, patience=args.patience, label_smoothing=args.smoothing, lr_factor=args.lr_factor,
 			verbose=args.verbose, save_cp=(not args.no_cp), checkpoint_path=args.checkpoint_path,
 			checkpoint_epoch=args.checkpoint_epoch, ablation_sim=args.ablation_sim, ablation_ce=args.ablation_ce, cuda=args.cuda)
 
