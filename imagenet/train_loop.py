@@ -42,7 +42,6 @@ class TrainLoop(object):
 		self.base_lr = self.optimizer.param_groups[0]['lr']
 		self.logger = logger
 		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'sim_loss': [], 'sim_loss_batch': []}
-		self.disc_label_smoothing = label_smoothing
 		self.best_e2e_eer, self.best_cos_eer, self.best_ce_er_1, self.best_ce_er_5, self.best_sim_er_1, self.best_sim_er_5 = np.inf, np.inf, np.inf, np.inf, np.inf, np.inf
 
 		if label_smoothing>0.0:

@@ -8,11 +8,11 @@ from tqdm import tqdm
 
 from harvester import AllTripletSelector
 from models.losses import LabelSmoothingLoss
-from utils import compute_eer
+from utils import compute_eer, adjust_learning_rate
 
 class TrainLoop(object):
 
-	def __init__(self, model, optimizer, train_loader, valid_loader, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True):
+	def __init__(self, model, optimizer, train_loader, valid_loader, max_gnorm, patience, lr_factor, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True):
 		if checkpoint_path is None:
 			# Save to current directory
 			self.checkpoint_path = os.getcwd()
@@ -27,6 +27,9 @@ class TrainLoop(object):
 		self.ablation_ce = ablation_ce
 		self.model = model
 		self.optimizer = optimizer
+		self.max_gnorm = max_gnorm
+		self.patience = patience
+		self.lr_factor = lr_factor
 		self.train_loader = train_loader
 		self.valid_loader = valid_loader
 		self.total_iters = 0
@@ -35,6 +38,7 @@ class TrainLoop(object):
 		self.verbose = verbose
 		self.save_cp = save_cp
 		self.device = next(self.model.parameters()).device
+		self.base_lr = self.optimizer.param_groups[0]['lr']
 		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'sim_loss': [], 'sim_loss_batch': []}
 		self.disc_label_smoothing = label_smoothing*0.5
 
@@ -57,7 +61,7 @@ class TrainLoop(object):
 		while (self.cur_epoch < n_epochs):
 
 			np.random.seed()
-
+			adjust_learning_rate(self.optimizer, self.cur_epoch, self.base_lr, self.patience, self.lr_factor)
 			if self.verbose>0:
 				print(' ')
 				print('Epoch {}/{}'.format(self.cur_epoch+1, n_epochs))
@@ -156,6 +160,7 @@ class TrainLoop(object):
 
 		loss = ce_loss + sim_loss
 		loss.backward()
+		torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_gnorm)
 		self.optimizer.step()
 
 		return loss.item(), 0.0 if self.ablation_ce else ce_loss.item(), sim_loss.item()
