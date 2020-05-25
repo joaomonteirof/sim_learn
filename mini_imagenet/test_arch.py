@@ -5,17 +5,21 @@ import torchvision
 import torchvision.transforms as transforms
 import torch.optim as optim
 import torch.utils.data
-from models import resnet
+from models import resnet, resnet12
 
 # Training settings
 parser = argparse.ArgumentParser(description='Test new architectures')
+parser.add_argument('--model', choices=['resnet', 'resnet_12'], default='resnet')
 parser.add_argument('--hidden-size', type=int, default=512, metavar='S', help='latent layer dimension (default: 512)')
 parser.add_argument('--n-hidden', type=int, default=1, metavar='N', help='maximum number of frames per utterance (default: 1)')
 parser.add_argument('--batch-size', type=int, default=5, metavar='N', help='batch size')
 parser.add_argument('--ablation-sim', action='store_true', default=False, help='Disables similarity learning')
 args = parser.parse_args()
 
-model = resnet.ResNet12(nh=args.n_hidden, n_h=args.hidden_size)
+if args.model == 'resnet':
+	model = resnet.ResNet50(nh=args.n_hidden, n_h=args.hidden_size)
+elif args.model == 'resnet_12':
+	model = resnet12.ResNet12(nh=args.n_hidden, n_h=args.hidden_size)
 
 x, y = torch.rand(args.batch_size, 3, 84, 84), torch.randint(10, (args.batch_size,)).long()
 

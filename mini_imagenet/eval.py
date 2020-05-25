@@ -4,7 +4,7 @@ import torch
 from train_loop import TrainLoop
 import torch.optim as optim
 from torchvision import datasets, transforms
-from models import resnet
+from models import resnet, resnet12
 import numpy as np
 import os
 import sys
@@ -15,6 +15,7 @@ if __name__ == '__main__':
 
 
 	parser = argparse.ArgumentParser(description='Mini-Imagenet EER evaluation')
+	parser.add_argument('--model', choices=['resnet', 'resnet_12'], default='resnet')
 	parser.add_argument('--cp-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
 	parser.add_argument('--data-path', type=str, default='./data/', metavar='Path', help='Path to data')
 	parser.add_argument('--out-path', type=str, default=None, metavar='Path', help='Path for saving computed scores')
@@ -29,7 +30,10 @@ if __name__ == '__main__':
 	ckpt = torch.load(args.cp_path, map_location = lambda storage, loc: storage)
 	dropout_prob, n_hidden, hidden_size, softmax = ckpt['dropout_prob'], ckpt['n_hidden'], ckpt['hidden_size'], ckpt['sm_type']
 
-	model = resnet.ResNet12(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax)
+	if args.model == 'resnet':
+		model = resnet.ResNet50(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax)
+	elif args.model == 'resnet_12':
+		model = resnet12.ResNet12(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax)
 	
 	print(model.load_state_dict(ckpt['model_state'], strict=False))
 
