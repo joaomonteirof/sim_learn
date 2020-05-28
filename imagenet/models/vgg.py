@@ -69,7 +69,6 @@ class VGG(nn.Module):
 
 		classifier.append(nn.Dropout(p=dropout_p))
 		classifier.append(nn.Linear(h_size, 1))
-		classifier.append(nn.Sigmoid())
 
 		return classifier
 
