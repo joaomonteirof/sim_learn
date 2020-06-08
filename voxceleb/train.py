@@ -120,4 +120,4 @@ if args.verbose > 0:
 best_eer = trainer.train(n_epochs=args.epochs, save_every=args.save_every)
 
 if args.logdir:
-	writer.add_hparams(hparam_dict=args_dict, metric_dict={'best_eer':best_eer})
+	writer.add_hparams(hparam_dict=args_dict, metric_dict={'best_eer':best_eer[0]})
