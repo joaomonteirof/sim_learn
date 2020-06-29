@@ -117,7 +117,7 @@ if __name__ == '__main__':
 
 			e2e_scores.append( pred.squeeze().item() )
 			cos_scores.append( 0.5*(torch.nn.functional.cosine_similarity(emb_enroll, emb_test).mean().item()+1.) )
-			fus_scores.append( (e2e_scores[-1]+cos_scores[-1])*0.5 )
+			fus_scores.append( (torch.sigmoid(torch.Tensor([e2e_scores[-1]])).item()+cos_scores[-1])*0.5 )
 
 			out_e2e.append([enroll_utt, test_utt, e2e_scores[-1]])
 			out_cos.append([enroll_utt, test_utt, cos_scores[-1]])
