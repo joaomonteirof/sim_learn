@@ -14,6 +14,7 @@ import os
 import sys
 from torch.utils.tensorboard import SummaryWriter
 from utils import mean, std, set_np_randomseed, get_freer_gpu, parse_args_for_log
+from optimizer import TransformerOptimizer
 
 # Training settings
 parser = argparse.ArgumentParser(description='Imagenet classification')
@@ -26,8 +27,7 @@ parser.add_argument('--smoothing', type=float, default=0.2, metavar='l', help='L
 parser.add_argument('--centroid-smoothing', type=float, default=0.9, metavar='Lamb', help='Moving average parameter for centroids')
 parser.add_argument('--momentum', type=float, default=0.9, metavar='m', help='Momentum paprameter (default: 0.9)')
 parser.add_argument('--max-gnorm', type=float, default=10., metavar='clip', help='Max gradient norm (default: 10.0)')
-parser.add_argument('--patience', type=int, default=30, metavar='S', help='Epochs to wait prior to reducing lr (default: 30)')
-parser.add_argument('--lr-factor', type=float, default=0.5, metavar='LRFACTOR', help='Factor to reduce lr after patience epochs with no improvement (default: 0.5)')
+parser.add_argument('--warmup', type=int, default=4000, metavar='N', help='Iterations until reach lr (default: 4000)')
 parser.add_argument('--checkpoint-epoch', type=int, default=None, metavar='N', help='epoch to load for checkpointing. If None, training starts from scratch')
 parser.add_argument('--checkpoint-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
 parser.add_argument('--data-path', type=str, default='./data_train', metavar='Path', help='Path to data')
@@ -125,9 +125,11 @@ if args.logdir:
 else:
 	writer = None
 
-optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.l2, momentum=args.momentum)
+optimizer = TransformerOptimizer(optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.l2, nesterov=True), 
+			lr=args.lr, 
+			warmup_steps=args.warmup)
 
-trainer = TrainLoop(model, optimizer, train_loader, valid_loader, max_gnorm=args.max_gnorm, patience=args.patience, lr_factor=args.lr_factor, 
+trainer = TrainLoop(model, optimizer, train_loader, valid_loader, max_gnorm=args.max_gnorm, 
 		label_smoothing=args.smoothing, verbose=args.verbose, save_cp=(not args.no_cp), 
 		checkpoint_path=args.checkpoint_path, checkpoint_epoch=args.checkpoint_epoch, 
 		ablation_sim=args.ablation_sim, ablation_ce=args.ablation_ce, cuda=args.cuda, logger=writer)

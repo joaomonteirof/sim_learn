@@ -9,11 +9,11 @@ from tqdm import tqdm
 
 from harvester import AllTripletSelector
 from models.losses import LabelSmoothingLoss
-from utils import compute_eer, correct_topk, adjust_learning_rate
+from utils import compute_eer, correct_topk
 from data_load import Loader
 
 class TrainLoop(object):
-	def __init__(self, model, optimizer, train_loader, valid_loader, max_gnorm, patience, lr_factor, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True, logger=None):
+	def __init__(self, model, optimizer, train_loader, valid_loader, max_gnorm, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True, logger=None):
 		if checkpoint_path is None:
 			# Save to current directory
 			self.checkpoint_path = os.getcwd()
@@ -29,8 +29,6 @@ class TrainLoop(object):
 		self.model = model
 		self.optimizer = optimizer
 		self.max_gnorm = max_gnorm
-		self.patience = patience
-		self.lr_factor = lr_factor
 		self.train_loader = train_loader
 		self.valid_loader = valid_loader
 		self.total_iters = 0
@@ -39,7 +37,6 @@ class TrainLoop(object):
 		self.verbose = verbose
 		self.save_cp = save_cp
 		self.device = next(self.model.parameters()).device
-		self.base_lr = self.optimizer.param_groups[0]['lr']
 		self.logger = logger
 		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'sim_loss': [], 'sim_loss_batch': []}
 		self.best_e2e_eer, self.best_cos_eer, self.best_ce_er_1, self.best_ce_er_5, self.best_sim_er_1, self.best_sim_er_5 = np.inf, np.inf, np.inf, np.inf, np.inf, np.inf
@@ -66,7 +63,7 @@ class TrainLoop(object):
 
 			self.cur_epoch += 1
 			np.random.seed()
-			adjust_learning_rate(self.optimizer, self.cur_epoch, self.base_lr, self.patience, self.lr_factor)
+
 			if self.verbose>0:
 				print(' ')
 				print('Epoch {}/{}'.format(self.cur_epoch, n_epochs))
@@ -93,7 +90,7 @@ class TrainLoop(object):
 					self.logger.add_scalar('Train/Total train Loss', train_loss, self.total_iters)
 					self.logger.add_scalar('Train/Similarity class. Loss', sim_loss, self.total_iters)
 					self.logger.add_scalar('Train/Cross enropy', ce_loss, self.total_iters)
-					self.logger.add_scalar('Info/LR', self.optimizer.param_groups[0]['lr'], self.total_iters)
+					self.logger.add_scalar('Info/LR', self.optimizer.optimizer.param_groups[0]['lr'], self.total_iters)
 
 				if self.total_iters % eval_every == 0:
 					self.evaluate()
@@ -109,7 +106,7 @@ class TrainLoop(object):
 				print('\nTotal train loss: {:0.4f}'.format(self.history['train_loss'][-1]))
 				print('CE loss: {:0.4f}'.format(self.history['ce_loss'][-1]))
 				print('Sim loss: {:0.4f}'.format(self.history['sim_loss'][-1]))
-				print('Current LR: {}\n'.format(self.optimizer.param_groups[0]['lr']))
+				print('Current LR: {}\n'.format(self.optimizer.optimizer.param_groups[0]['lr']))
 
 			if self.save_cp and self.cur_epoch % save_every == 0 and not self.save_epoch_cp:
 					self.checkpointing()
