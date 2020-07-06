@@ -39,13 +39,15 @@ class TrainLoop(object):
 		self.save_cp = save_cp
 		self.device = next(self.model.parameters()).device
 		self.base_lr = self.optimizer.param_groups[0]['lr']
-		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'sim_loss': [], 'sim_loss_batch': []}
+		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'sim_loss': [], 'sim_loss_batch': [], 'bin_loss': [], 'bin_loss_batch': []}
 		self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, factor=self.lr_factor, patience=self.patience, verbose=True if self.verbose>0 else False, threshold=1e-4, min_lr=1e-7)
 
 		if label_smoothing>0.0:
 			self.ce_criterion = LabelSmoothingLoss(label_smoothing, lbl_set_size=10)
+			self.disc_label_smoothing = label_smoothing*0.5
 		else:
 			self.ce_criterion = torch.nn.CrossEntropyLoss()
+			self.disc_label_smoothing = 0.0
 
 		if self.valid_loader is not None:
 			self.history['e2e_eer'] = []
@@ -69,24 +71,29 @@ class TrainLoop(object):
 			train_loss_epoch=0.0
 			ce_loss_epoch=0.0
 			sim_loss_epoch=0.0
+			bin_loss_epoch=0.0
 			for t, batch in train_iter:
-				train_loss, ce_loss, sim_loss = self.train_step(batch)
+				train_loss, ce_loss, sim_loss, bin_loss = self.train_step(batch)
 				self.history['train_loss_batch'].append(train_loss)
 				self.history['ce_loss_batch'].append(ce_loss)
 				self.history['sim_loss_batch'].append(sim_loss)
+				self.history['bin_loss_batch'].append(bin_loss)
 				train_loss_epoch+=train_loss
 				ce_loss_epoch+=ce_loss
 				sim_loss_epoch+=sim_loss
+				bin_loss_epoch+=bin_loss
 				self.total_iters += 1
 
 			self.history['train_loss'].append(train_loss_epoch/(t+1))
 			self.history['ce_loss'].append(ce_loss_epoch/(t+1))
 			self.history['sim_loss'].append(sim_loss_epoch/(t+1))
+			self.history['bin_loss'].append(bin_loss_epoch/(t+1))
 
 			if self.verbose>0:
 				print('\nTotal train loss: {:0.4f}'.format(self.history['train_loss'][-1]))
 				print('CE loss: {:0.4f}'.format(self.history['ce_loss'][-1]))
 				print('Sim loss: {:0.4f}\n'.format(self.history['sim_loss'][-1]))
+				print('Bin loss: {:0.4f}\n'.format(self.history['Bin_loss'][-1]))
 
 			if self.valid_loader is not None:
 
@@ -155,12 +162,27 @@ class TrainLoop(object):
 
 		sim_loss = self.ce_criterion(self.model.compute_logits(embeddings, ablation=self.ablation_sim), y)
 
-		loss = ce_loss + sim_loss
+		# Get all triplets now for bin classifier
+		triplets_idx = self.harvester.get_triplets(embeddings.detach(), y)
+		triplets_idx = triplets_idx.to(self.device, non_blocking=True)
+
+		emb_a = torch.index_select(embeddings, 0, triplets_idx[:, 0])
+		emb_p = torch.index_select(embeddings, 0, triplets_idx[:, 1])
+		emb_n = torch.index_select(embeddings, 0, triplets_idx[:, 2])
+
+		pred_bin_p, pred_bin_n = self.model.forward_bin(emb_a, emb_p).squeeze(), self.model.forward_bin(emb_a, emb_n).squeeze()
+
+		if self.ablation_sim:
+			loss_bin = (torch.nn.functional.cosine_similarity(emb_a, emb_n) - torch.nn.functional.cosine_similarity(emb_a, emb_p) ).mean()
+		else:
+			loss_bin = torch.nn.BCEWithLogitsLoss()(pred_bin_p, torch.rand_like(pred_bin_p)*self.disc_label_smoothing+(1.0-self.disc_label_smoothing)) + torch.nn.BCEWithLogitsLoss()(pred_bin_n, torch.rand_like(pred_bin_n)*self.disc_label_smoothing)
+
+		loss = ce_loss + sim_loss + loss_bin
 		loss.backward()
 		torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_gnorm)
 		self.optimizer.step()
 
-		return loss.item(), 0.0 if self.ablation_ce else ce_loss.item(), sim_loss.item()
+		return loss.item(), 0.0 if self.ablation_ce else ce_loss.item(), sim_loss.item(), loss_bin.item()
 
 
 	def valid(self, batch):
