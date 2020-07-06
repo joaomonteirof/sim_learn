@@ -35,7 +35,7 @@ def augment(example):
 		if random.random()>0.5:
 			example = freq_mask(example, F=50, dim=2)
 		if random.random()>0.5:
-			example += torch.randn_like(example)*random.choice([1e-2, 1e-3, 1e-4, 1e-5])
+			example += torch.randn_like(example)*random.choice([1e-1, 1e-2, 1e-3])
 
 	return example
 
@@ -53,6 +53,8 @@ def freq_mask(spec, F=30, num_masks=1, replace_with_zero=False, dim=1):
 	"""
 
 	assert dim==1 or dim==2, 'Only 1 or 2 are valid values for dim!'
+
+	F = min(F, spec.size(dim))
 
 	with torch.no_grad():
 
