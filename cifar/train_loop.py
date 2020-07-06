@@ -178,9 +178,6 @@ class TrainLoop(object):
 		emb_p = torch.index_select(embeddings, 0, triplets_idx[:, 1])
 		emb_n = torch.index_select(embeddings, 0, triplets_idx[:, 2])
 
-		y_ = torch.cat([torch.rand(emb_ap.size(0))*self.disc_label_smoothing+(1.0-self.disc_label_smoothing), torch.rand(emb_an.size(0))*self.disc_label_smoothing],0) if isinstance(self.ce_criterion, LabelSmoothingLoss) else torch.cat([torch.ones(emb_ap.size(0)), torch.zeros(emb_an.size(0))],0)
-		y_ = y_.to(self.device, non_blocking=True)
-
 		pred_bin_p, pred_bin_n = self.model.forward_bin(emb_a, emb_p).squeeze(), self.model.forward_bin(emb_a, emb_n).squeeze()
 
 		if self.ablation_sim:
