@@ -92,7 +92,7 @@ class TrainLoop(object):
 			if self.verbose>0:
 				print('\nTotal train loss: {:0.4f}'.format(self.history['train_loss'][-1]))
 				print('CE loss: {:0.4f}'.format(self.history['ce_loss'][-1]))
-				print('Sim loss: {:0.4f}\n'.format(self.history['sim_loss'][-1]))
+				print('Sim loss: {:0.4f}'.format(self.history['sim_loss'][-1]))
 				print('Bin loss: {:0.4f}\n'.format(self.history['bin_loss'][-1]))
 
 			if self.valid_loader is not None:
