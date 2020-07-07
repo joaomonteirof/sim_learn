@@ -13,7 +13,7 @@ from utils import compute_eer, correct_topk
 from data_load import Loader
 
 class TrainLoop(object):
-	def __init__(self, model, optimizer, train_loader, valid_loader, max_gnorm, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True, logger=None):
+	def __init__(self, model, optimizer, train_loader, valid_loader, max_gnorm, patience, lr_factor, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True, logger=None):
 		if checkpoint_path is None:
 			# Save to current directory
 			self.checkpoint_path = os.getcwd()
@@ -28,7 +28,10 @@ class TrainLoop(object):
 		self.ablation_ce = ablation_ce
 		self.model = model
 		self.optimizer = optimizer
+		self.patience = patience
 		self.max_gnorm = max_gnorm
+		self.lr_factor = lr_factor
+		self.base_lr = self.optimizer.param_groups[0]['lr']
 		self.train_loader = train_loader
 		self.valid_loader = valid_loader
 		self.total_iters = 0
@@ -66,6 +69,8 @@ class TrainLoop(object):
 			self.cur_epoch += 1
 			np.random.seed()
 
+			adjust_learning_rate(self.optimizer, self.cur_epoch, self.base_lr, self.patience, self.lr_factor)
+
 			if self.verbose>0:
 				print(' ')
 				print('Epoch {}/{}'.format(self.cur_epoch, n_epochs))
@@ -96,7 +101,7 @@ class TrainLoop(object):
 					self.logger.add_scalar('Train/Similarity class. Loss', sim_loss, self.total_iters)
 					self.logger.add_scalar('Train/Cross enropy', ce_loss, self.total_iters)
 					self.logger.add_scalar('Train/Bin. loss', bin_loss, self.total_iters)
-					self.logger.add_scalar('Info/LR', self.optimizer.optimizer.param_groups[0]['lr'], self.total_iters)
+					self.logger.add_scalar('Info/LR', self.optimizer.param_groups[0]['lr'], self.total_iters)
 
 				if self.total_iters % eval_every == 0:
 					self.evaluate()
@@ -114,7 +119,7 @@ class TrainLoop(object):
 				print('CE loss: {:0.4f}'.format(self.history['ce_loss'][-1]))
 				print('Sim loss: {:0.4f}'.format(self.history['sim_loss'][-1]))
 				print('Bin loss: {:0.4f}'.format(self.history['bin_loss'][-1]))
-				print('Current LR: {}\n'.format(self.optimizer.optimizer.param_groups[0]['lr']))
+				print('Current LR: {}\n'.format(self.optimizer.param_groups[0]['lr']))
 
 			if self.save_cp and self.cur_epoch % save_every == 0 and not self.save_epoch_cp:
 					self.checkpointing()
