@@ -106,19 +106,17 @@ class TrainLoop(object):
 
 			if self.valid_loader is not None:
 
-				e2e_scores, cos_scores, labels, emb, y_ = None, None, None, None, None
+				e2e_scores, cos_scores, labels = None, None, None
 
 				for t, batch in enumerate(self.valid_loader):
-					e2e_scores_batch, cos_scores_batch, labels_batch, emb_batch, y_batch = self.valid(batch)
+					e2e_scores_batch, cos_scores_batch, labels_batch = self.valid(batch)
 
 					try:
 						e2e_scores = np.concatenate([e2e_scores, e2e_scores_batch], 0)
 						cos_scores = np.concatenate([cos_scores, cos_scores_batch], 0)
 						labels = np.concatenate([labels, labels_batch], 0)
-						emb = np.concatenate([emb, emb_batch], 0)
-						y_ = np.concatenate([y_, y_batch], 0)
 					except:
-						e2e_scores, cos_scores, labels, emb, y_ = e2e_scores_batch, cos_scores_batch, labels_batch, emb_batch, y_batch
+						e2e_scores, cos_scores, labels = e2e_scores_batch, cos_scores_batch, labels_batch
 
 				fus_scores = (e2e_scores + 0.5*(cos_scores+1.))*0.5
 
@@ -141,9 +139,6 @@ class TrainLoop(object):
 					self.logger.add_histogram('Valid/FUS_Scores', values=fus_scores, global_step=self.total_iters-1)
 					self.logger.add_histogram('Valid/Labels', values=labels, global_step=self.total_iters-1)
 					self.logger.add_embedding(mat=self.model.centroids.detach().cpu().numpy(), metadata=np.arange(self.model.centroids.size(0)), global_step=self.total_iters-1)
-
-					if self.verbose>1:
-						self.logger.add_embedding(mat=emb, metadata=list(y_), global_step=self.total_iters-1)
 
 				if self.verbose>1:
 					print(' ')
@@ -248,7 +243,7 @@ class TrainLoop(object):
 			cos_scores_p = torch.nn.functional.cosine_similarity(emb_a, emb_p)
 			cos_scores_n = torch.nn.functional.cosine_similarity(emb_a, emb_n)
 
-		return np.concatenate([e2e_scores_p.detach().cpu().numpy(), e2e_scores_n.detach().cpu().numpy()], 0), np.concatenate([cos_scores_p.detach().cpu().numpy(), cos_scores_n.detach().cpu().numpy()], 0), np.concatenate([np.ones(e2e_scores_p.size(0)), np.zeros(e2e_scores_n.size(0))], 0), embeddings.detach().cpu().numpy(), y.detach().cpu().numpy()
+		return np.concatenate([e2e_scores_p.detach().cpu().numpy(), e2e_scores_n.detach().cpu().numpy()], 0), np.concatenate([cos_scores_p.detach().cpu().numpy(), cos_scores_n.detach().cpu().numpy()], 0), np.concatenate([np.ones(e2e_scores_p.size(0)), np.zeros(e2e_scores_n.size(0))], 0)
 
 	def checkpointing(self):
 
