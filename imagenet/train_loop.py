@@ -9,11 +9,11 @@ from tqdm import tqdm
 
 from harvester import AllTripletSelector
 from models.losses import LabelSmoothingLoss
-from utils import compute_eer, correct_topk, adjust_learning_rate
+from utils import compute_eer, correct_topk
 from data_load import Loader
 
 class TrainLoop(object):
-	def __init__(self, model, optimizer, train_loader, valid_loader, max_gnorm, patience, lr_factor, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True, logger=None):
+	def __init__(self, model, optimizer, train_loader, valid_loader, max_gnorm, lr_factor, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True, logger=None):
 		if checkpoint_path is None:
 			# Save to current directory
 			self.checkpoint_path = os.getcwd()
@@ -28,10 +28,8 @@ class TrainLoop(object):
 		self.ablation_ce = ablation_ce
 		self.model = model
 		self.optimizer = optimizer
-		self.patience = patience
 		self.max_gnorm = max_gnorm
-		self.lr_factor = lr_factor
-		self.base_lr = self.optimizer.param_groups[0]['lr']
+		self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[2, 10, 30, 60], gamma=lr_factor)
 		self.train_loader = train_loader
 		self.valid_loader = valid_loader
 		self.total_iters = 0
@@ -72,7 +70,7 @@ class TrainLoop(object):
 			if self.logger:
 				self.logger.add_scalar('Info/Epoch', self.cur_epoch, self.total_iters)
 
-			adjust_learning_rate(self.optimizer, self.cur_epoch, self.base_lr, self.patience, self.lr_factor)
+			self.scheduler.step()
 
 			if self.verbose>0:
 				print(' ')
@@ -317,6 +315,7 @@ class TrainLoop(object):
 		'hidden_size': self.model.hidden_size,
 		'sm_type': self.model.sm_type,
 		'optimizer_state': self.optimizer.state_dict(),
+		'scheduler_state': self.scheduler.state_dict(),
 		'history': self.history,
 		'total_iters': self.total_iters,
 		'cur_epoch': self.cur_epoch,
@@ -336,6 +335,8 @@ class TrainLoop(object):
 			self.model.centroids = ckpt['centroids']
 			# Load optimizer state
 			self.optimizer.load_state_dict(ckpt['optimizer_state'])
+			# Load scheduler state
+			self.scheduler.load_state_dict(ckpt['scheduler_state'])
 			# Load history
 			self.history = ckpt['history']
 			self.total_iters = ckpt['total_iters']
