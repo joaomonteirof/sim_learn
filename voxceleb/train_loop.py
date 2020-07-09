@@ -60,6 +60,9 @@ class TrainLoop(object):
 			np.random.seed()
 			self.train_loader.dataset.update_lists()
 
+			if self.logger:
+				self.logger.add_scalar('Info/Epoch', self.cur_epoch+1, self.total_iters)
+
 			if self.verbose>1:
 				print(' ')
 				print('Epoch {}/{}'.format(self.cur_epoch+1, n_epochs))

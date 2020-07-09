@@ -69,6 +69,9 @@ class TrainLoop(object):
 			self.cur_epoch += 1
 			np.random.seed()
 
+			if self.logger:
+				self.logger.add_scalar('Info/Epoch', self.cur_epoch, self.total_iters)
+
 			adjust_learning_rate(self.optimizer, self.cur_epoch, self.base_lr, self.patience, self.lr_factor)
 
 			if self.verbose>0:
