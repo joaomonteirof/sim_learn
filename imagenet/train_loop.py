@@ -29,7 +29,7 @@ class TrainLoop(object):
 		self.model = model
 		self.optimizer = optimizer
 		self.max_gnorm = max_gnorm
-		self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[3, 9, 21, 50], gamma=lr_factor)
+		self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[2, 8, 20, 50], gamma=lr_factor)
 		self.train_loader = train_loader
 		self.valid_loader = valid_loader
 		self.total_iters = 0
@@ -43,7 +43,7 @@ class TrainLoop(object):
 		self.best_e2e_eer, self.best_cos_eer, self.best_ce_er_1, self.best_ce_er_5, self.best_sim_er_1, self.best_sim_er_5 = np.inf, np.inf, np.inf, np.inf, np.inf, np.inf
 
 		if label_smoothing>0.0:
-			self.ce_criterion = LabelSmoothingLoss(label_smoothing, lbl_set_size=1000)
+			self.ce_criterion = LabelSmoothingLoss(label_smoothing, lbl_set_size=self.model.n_class)
 			self.disc_label_smoothing = label_smoothing*0.5
 		else:
 			self.ce_criterion = torch.nn.CrossEntropyLoss()
@@ -69,8 +69,6 @@ class TrainLoop(object):
 
 			if self.logger:
 				self.logger.add_scalar('Info/Epoch', self.cur_epoch, self.total_iters)
-
-			self.scheduler.step()
 
 			if self.verbose>0:
 				print(' ')
@@ -124,6 +122,8 @@ class TrainLoop(object):
 
 			if self.save_cp and self.cur_epoch % save_every == 0 and not self.save_epoch_cp:
 					self.checkpointing()
+
+			self.scheduler.step()
 
 		if self.verbose>0:
 			print('Training done!')
