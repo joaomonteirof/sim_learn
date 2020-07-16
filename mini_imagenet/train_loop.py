@@ -40,7 +40,7 @@ class TrainLoop(object):
 		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'sim_loss': [], 'sim_loss_batch': [], 'bin_loss': [], 'bin_loss_batch': []}
 
 		if label_smoothing>0.0:
-			self.ce_criterion = LabelSmoothingLoss(label_smoothing, lbl_set_size=esself.model.n_class)
+			self.ce_criterion = LabelSmoothingLoss(label_smoothing, lbl_set_size=self.model.n_classes)
 			self.disc_label_smoothing = label_smoothing*0.5
 		else:
 			self.ce_criterion = torch.nn.CrossEntropyLoss()
