@@ -76,7 +76,7 @@ class TrainLoop(object):
 				self.history['train_loss_batch'].append(train_loss)
 				self.history['ce_loss_batch'].append(ce_loss)
 				self.history['sim_loss_batch'].append(sim_loss)
-				self.history['bin_loss_batch'].append(sim_loss)
+				self.history['bin_loss_batch'].append(bin_loss)
 				train_loss_epoch+=train_loss
 				ce_loss_epoch+=ce_loss
 				sim_loss_epoch+=sim_loss
@@ -93,7 +93,7 @@ class TrainLoop(object):
 			if self.verbose>0:
 				print('\nTotal train loss: {:0.4f}'.format(self.history['train_loss'][-1]))
 				print('CE loss: {:0.4f}'.format(self.history['ce_loss'][-1]))
-				print('Sim loss: {:0.4f}\n'.format(self.history['sim_loss'][-1]))
+				print('Sim loss: {:0.4f}'.format(self.history['sim_loss'][-1]))
 				print('Bin loss: {:0.4f}\n'.format(self.history['bin_loss'][-1]))
 
 			if self.valid_loader is not None:
