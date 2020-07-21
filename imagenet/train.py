@@ -124,7 +124,7 @@ if args.logdir:
 else:
 	writer = None
 
-optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.l2, momentum=args.momentum, nesterov=True)
+optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.l2, momentum=args.momentum, nesterov=False)
 
 trainer = TrainLoop(model, optimizer, train_loader, valid_loader, max_gnorm=args.max_gnorm, lr_factor=args.lr_factor, 
 		label_smoothing=args.smoothing, verbose=args.verbose, save_cp=(not args.no_cp), 
