@@ -28,7 +28,6 @@ class TrainLoop(object):
 		self.model = model
 		self.optimizer = optimizer
 		self.max_gnorm = max_gnorm
-		self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[20, 60, 150, 400], gamma=lr_factor)
 		self.train_loader = train_loader
 		self.valid_loader = valid_loader
 		self.total_iters = 0
@@ -123,8 +122,6 @@ class TrainLoop(object):
 					self.checkpointing()
 			elif self.save_cp and self.cur_epoch % save_every == 0:
 					self.checkpointing()
-
-			self.scheduler.step()
 
 		if self.verbose>0:
 			print('Training done!')
@@ -221,7 +218,6 @@ class TrainLoop(object):
 		'hidden_size': self.model.hidden_size,
 		'sm_type': self.model.sm_type,
 		'optimizer_state': self.optimizer.state_dict(),
-		'scheduler_state': self.scheduler.state_dict(),
 		'history': self.history,
 		'total_iters': self.total_iters,
 		'cur_epoch': self.cur_epoch,
@@ -241,8 +237,6 @@ class TrainLoop(object):
 			self.model.centroids = ckpt['centroids']
 			# Load optimizer state
 			self.optimizer.load_state_dict(ckpt['optimizer_state'])
-			# Load scheduler state
-			self.scheduler.load_state_dict(ckpt['scheduler_state'])
 			# Load history
 			self.history = ckpt['history']
 			self.total_iters = ckpt['total_iters']
