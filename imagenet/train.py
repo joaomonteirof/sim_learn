@@ -27,7 +27,6 @@ parser.add_argument('--l2', type=float, default=1e-4, metavar='lambda', help='L2
 parser.add_argument('--smoothing', type=float, default=0.2, metavar='l', help='Label smoothing (default: 0.2)')
 parser.add_argument('--centroid-smoothing', type=float, default=0.9, metavar='Lamb', help='Moving average parameter for centroids')
 parser.add_argument('--max-gnorm', type=float, default=10., metavar='clip', help='Max gradient norm (default: 10.0)')
-parser.add_argument('--lr-factor', type=float, default=0.1, metavar='LRFACTOR', help='Factor to reduce lr (default: 0.1)')
 parser.add_argument('--checkpoint-epoch', type=int, default=None, metavar='N', help='epoch to load for checkpointing. If None, training starts from scratch')
 parser.add_argument('--checkpoint-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
 parser.add_argument('--data-path', type=str, default='./data_train', metavar='Path', help='Path to data')
@@ -127,7 +126,7 @@ else:
 
 optimizer = optim.Adam(model.parameters(), lr=args.lr, betas=(args.beta1, args.beta2), weight_decay=args.l2)
 
-trainer = TrainLoop(model, optimizer, train_loader, valid_loader, max_gnorm=args.max_gnorm, lr_factor=args.lr_factor, 
+trainer = TrainLoop(model, optimizer, train_loader, valid_loader, max_gnorm=args.max_gnorm,
 		label_smoothing=args.smoothing, verbose=args.verbose, save_cp=(not args.no_cp), 
 		checkpoint_path=args.checkpoint_path, checkpoint_epoch=args.checkpoint_epoch, 
 		ablation_sim=args.ablation_sim, ablation_ce=args.ablation_ce, cuda=args.cuda, logger=writer)
