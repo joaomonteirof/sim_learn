@@ -135,7 +135,7 @@ class ResNet(nn.Module):
 
 		self.centroids_lambda = centroids_lambda
 
-		self.centroids = torch.rand(self.n_classes, 16000)
+		self.centroids = torch.rand(self.n_classes, 640)
 		self.centroids.requires_grad = False
 
 		self.layer1 = self._make_layer(block, 64, stride=2, drop_rate=drop_rate)
@@ -150,13 +150,13 @@ class ResNet(nn.Module):
 		self.drop_rate = drop_rate
 
 		if sm_type=='softmax':
-			self.out_proj=Softmax(input_features=16000, output_features=num_classes)
+			self.out_proj=Softmax(input_features=640, output_features=num_classes)
 		elif sm_type=='am_softmax':
-			self.out_proj=AMSoftmax(input_features=16000, output_features=num_classes)
+			self.out_proj=AMSoftmax(input_features=640, output_features=num_classes)
 		else:
 			raise NotImplementedError
 
-		self.similarity = self.make_bin_layers(n_in=2*16000, n_h_layers=nh, h_size=n_h, dropout_p=dropout_prob)
+		self.similarity = self.make_bin_layers(n_in=2*640, n_h_layers=nh, h_size=n_h, dropout_p=dropout_prob)
 
 		for m in self.modules():
 			if isinstance(m, nn.Conv2d):
@@ -238,7 +238,7 @@ class ResNet(nn.Module):
 		else:
 			return self.forward_bin(centroids, emb).squeeze(-1).transpose(1,-1)
 
-def ResNet12(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=1000, centroids_lambda=0.9, keep_prob=1.0, avg_pool=False, **kwargs):
+def ResNet12(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=1000, centroids_lambda=0.9, keep_prob=1.0, avg_pool=True, **kwargs):
 	"""Constructs a ResNet-12 model.
 	"""
 	model = ResNet(block=BasicBlock, keep_prob=keep_prob, avg_pool=avg_pool, num_classes=n_classes, nh=nh, n_h=n_h, sm_type=sm_type, dropout_prob=dropout_prob, centroids_lambda=centroids_lambda, **kwargs)
