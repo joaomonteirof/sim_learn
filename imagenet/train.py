@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from train_loop import TrainLoop
 import torch.optim as optim
 from torchvision import datasets, transforms
+from RandAugment import RandAugment
 from models import vgg, resnet, densenet
 from data_load import Loader, collater
 import numpy as np
@@ -57,11 +58,13 @@ if args.cuda:
 	torch.backends.cudnn.benchmark=True
 
 if args.hdf_path:
-	transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.RandomRotation(10), transforms.RandomPerspective(p=0.1), transforms.RandomGrayscale(p=0.1), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+	transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+	transform_train.transforms.insert(0, RandAugment(1, 15))
 	trainset = Loader(args.hdf_path, transform_train)
 	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True, collate_fn=collater)
 else:
-	transform_train = transforms.Compose([transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.RandomRotation(10), transforms.RandomPerspective(p=0.1), transforms.RandomGrayscale(p=0.1), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])	
+	transform_train = transforms.Compose([transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])	
+	transform_train.transforms.insert(0, RandAugment(1, 15))
 	trainset = datasets.ImageFolder(args.data_path, transform=transform_train)
 	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True)
 
