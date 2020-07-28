@@ -238,7 +238,7 @@ class ResNet(nn.Module):
 		else:
 			return self.forward_bin(centroids, emb).squeeze(-1).transpose(1,-1)
 
-def ResNet12(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=1000, centroids_lambda=0.9, keep_prob=1.0, avg_pool=True, **kwargs):
+def ResNet12(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=100, centroids_lambda=0.9, keep_prob=1.0, avg_pool=True, **kwargs):
 	"""Constructs a ResNet-12 model.
 	"""
 	model = ResNet(block=BasicBlock, keep_prob=keep_prob, avg_pool=avg_pool, num_classes=n_classes, nh=nh, n_h=n_h, sm_type=sm_type, dropout_prob=dropout_prob, centroids_lambda=centroids_lambda, **kwargs)
