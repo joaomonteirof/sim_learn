@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from train_loop import TrainLoop
 import torch.optim as optim
 from torchvision import datasets, transforms
+transforms.ToPILImage(), 
 from models import vgg, resnet, densenet
 import numpy as np
 from time import sleep
@@ -46,6 +47,8 @@ parser.add_argument('--seed', type=int, default=42, metavar='S', help='random se
 parser.add_argument('--n-workers', type=int, default=4, metavar='N', help='Workers for data loading. Default is 4')
 parser.add_argument('--model', choices=['vgg', 'resnet', 'densenet'], default='resnet')
 parser.add_argument('--softmax', choices=['softmax', 'am_softmax'], default='softmax', help='Softmax type')
+parser.add_argument('--aug-M', type=int, default=15, metavar='AUGM', help='Augmentation hp. Default is 15')
+parser.add_argument('--aug-N', type=int, default=1, metavar='AUGN', help='Augmentation hp. Default is 1')
 parser.add_argument('--hidden-size', type=int, default=512, metavar='S', help='latent layer dimension (default: 512)')
 parser.add_argument('--n-hidden', type=int, default=1, metavar='N', help='maximum number of frames per utterance (default: 1)')
 parser.add_argument('--dropout-prob', type=float, default=0.25, metavar='p', help='Dropout probability (default: 0.25)')
@@ -65,6 +68,7 @@ transform_train = transforms.Compose([transforms.RandomCrop(32, padding=4), tran
 transform_test = transforms.Compose([transforms.ToTensor(), transforms.Normalize([x / 255 for x in [125.3, 123.0, 113.9]], [x / 255 for x in [63.0, 62.1, 66.7]])])
 
 #trainset = Loader(args.data_path)
+transform_train.transforms.insert(0, RandAugment(args.aug_N, args.aug_M))
 trainset = datasets.CIFAR10(root=args.data_path, train=True, download=True, transform=transform_train)
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed)
 

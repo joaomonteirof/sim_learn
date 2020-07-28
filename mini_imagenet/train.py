@@ -55,7 +55,7 @@ if args.cuda:
 
 if args.hdf_path:
 	transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
-	transform_train.transforms.insert(0, RandAugment(args.aug_N, args.aug_M))
+	transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
 	trainset = Loader(args.hdf_path, transform_train)
 	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True, collate_fn=collater)
 else:
