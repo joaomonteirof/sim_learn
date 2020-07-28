@@ -5,8 +5,8 @@ from torch.utils.data import DataLoader
 from train_loop import TrainLoop
 import torch.optim as optim
 from torchvision import datasets, transforms
-transforms.ToPILImage(), 
-from models import vgg, resnet, densenet
+from RandAugment import RandAugment
+from models import resnet, wideresnet
 import numpy as np
 from time import sleep
 import os
@@ -45,7 +45,7 @@ parser.add_argument('--checkpoint-path', type=str, default=None, metavar='Path',
 parser.add_argument('--data-path', type=str, default='./data/', metavar='Path', help='Path to data')
 parser.add_argument('--seed', type=int, default=42, metavar='S', help='random seed (default: 42)')
 parser.add_argument('--n-workers', type=int, default=4, metavar='N', help='Workers for data loading. Default is 4')
-parser.add_argument('--model', choices=['vgg', 'resnet', 'densenet'], default='resnet')
+parser.add_argument('--model', choices=['resnet', 'wideresnet'], default='resnet')
 parser.add_argument('--softmax', choices=['softmax', 'am_softmax'], default='softmax', help='Softmax type')
 parser.add_argument('--aug-M', type=int, default=15, metavar='AUGM', help='Augmentation hp. Default is 15')
 parser.add_argument('--aug-N', type=int, default=1, metavar='AUGN', help='Augmentation hp. Default is 1')
@@ -76,12 +76,10 @@ train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,
 validset = datasets.CIFAR10(root=args.data_path, train=False, download=True, transform=transform_test)
 valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=False, num_workers=args.n_workers)
 
-if args.model == 'vgg':
-	model = vgg.VGG('VGG16', nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing)
-elif args.model == 'resnet':
+if args.model == 'resnet':
 	model = resnet.ResNet18(nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing)
-elif args.model == 'densenet':
-	model = densenet.densenet_cifar(nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing)
+elif args.model == 'wideresnet':
+	model = wideresnet.WideResNet(nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing)
 
 if args.verbose >0:
 	print('\n', model, '\n')

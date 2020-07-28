@@ -3,7 +3,7 @@ import argparse
 import torch
 import torch.nn.functional as F
 from torchvision import datasets, transforms
-from models import vgg, resnet, densenet
+from models import resnet, wideresnet
 import numpy as np
 import os
 import sys
@@ -17,7 +17,7 @@ if __name__ == '__main__':
 	parser.add_argument('--cp-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
 	parser.add_argument('--data-path', type=str, default='./data/', metavar='Path', help='Path to data')
 	parser.add_argument('--batch-size', type=int, default=100, metavar='N', help='input batch size for testing (default: 100)')
-	parser.add_argument('--model', choices=['vgg', 'resnet', 'densenet'], default='resnet')
+	parser.add_argument('--model', choices=['resnet', 'wideresnet'], default='resnet')
 	parser.add_argument('--dropout-prob', type=float, default=0.25, metavar='p', help='Dropout probability (default: 0.25)')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
 	parser.add_argument('--ablation-sim', action='store_true', default=False, help='Computes similarities as negative Euclidean distances')
@@ -38,12 +38,10 @@ if __name__ == '__main__':
 		n_hidden, hidden_size, softmax = get_classifier_config_from_cp(ckpt)
 		dropout_prob = args.dropout_prob
 
-	if args.model == 'vgg':
-		model = vgg.VGG('VGG16', nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax)
-	elif args.model == 'resnet':
+	if args.model == 'resnet':
 		model = resnet.ResNet18(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax)
-	elif args.model == 'densenet':
-		model = densenet.densenet_cifar(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax)
+	elif args.model == 'wideresnet':
+		model = wideresnet.WideResNet(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax)
 	
 	try:
 		model.load_state_dict(ckpt['model_state'], strict=True)
