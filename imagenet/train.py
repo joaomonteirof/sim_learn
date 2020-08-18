@@ -99,7 +99,7 @@ elif args.model == 'densenet':
 if args.pretrained_path:
 	if ckpt['sm_type'] == 'am_softmax':
 		del(ckpt['model_state']['out_proj.w'])
-	elif ckpt['model_state']['out_proj.w.weight'].size(0) != args.n_classes:
+	elif ckpt['model_state']['out_proj.w.weight'].size(0) != args.nclasses:
 		del(ckpt['model_state']['out_proj.w.weight'])
 		del(ckpt['model_state']['out_proj.w.bias'])
 		print('\nRandomly initialized output layer will be used since the number of classes is different between train data and pretrained model\n')
