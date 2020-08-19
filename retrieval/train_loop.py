@@ -99,7 +99,7 @@ class TrainLoop(object):
 
 				if self.total_iters % eval_every == 0:
 					self.evaluate()
-					if self.save_cp and ( self.history['ErrorRate_ce_top1'][-1] < np.min([np.inf]+self.history['ErrorRate_ce_top1'][:-1]) or self.history['ErrorRate_sim_top1'][-1] < np.min([np.inf]+self.history['ErrorRate_sim_top1'][:-1]) ):
+					if self.save_cp and ( self.history['e2e_eer'][-1] < np.min([np.inf]+self.history['e2e_eer'][:-1]) or self.history['cos_eer'][-1] < np.min([np.inf]+self.history['cos_eer'][:-1]) ):
 							self.checkpointing()
 							self.save_epoch_cp = True
 
