@@ -39,7 +39,7 @@ class TrainLoop(object):
 		self.device = next(self.model.parameters()).device
 		self.logger = logger
 		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'sim_loss': [], 'sim_loss_batch': [], 'bin_loss': [], 'bin_loss_batch': []}
-		self.best_e2e_eer, self.best_cos_eer, self.best_ce_er_1, self.best_ce_er_5, self.best_sim_er_1, self.best_sim_er_5 = np.inf, np.inf, np.inf, np.inf, np.inf, np.inf
+		self.best_e2e_eer, self.best_cos_eer = np.inf, np.inf
 
 		if label_smoothing>0.0:
 			self.ce_criterion = LabelSmoothingLoss(label_smoothing, lbl_set_size=self.model.n_classes)
@@ -122,7 +122,7 @@ class TrainLoop(object):
 			print('Training done!')
 
 		if self.valid_loader is not None:
-			return [np.min(self.history['e2e_eer']), np.min(self.history['cos_eer']), np.min(self.history['ErrorRate_ce_top1']), np.min(self.history['ErrorRate_ce_top5']), np.min(self.history['ErrorRate_sim_top1']), np.min(self.history['ErrorRate_sim_top5'])]
+			return [np.min(self.history['e2e_eer']), np.min(self.history['cos_eer'])]
 		else:
 			return [np.min(self.history['train_loss'])]
 
@@ -245,10 +245,6 @@ class TrainLoop(object):
 		if self.verbose>0:
 			print('\nCurrent e2e EER, best e2e EER, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(self.history['e2e_eer'][-1], np.min(self.history['e2e_eer']), self.best_e2e_eer_epoch, self.best_e2e_eer_iteration))
 			print('Current cos EER, best cos EER, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(self.history['cos_eer'][-1], np.min(self.history['cos_eer']), self.best_cos_eer_epoch, self.best_cos_eer_iteration))
-			print('Current Top 1 error rate CE, best top 1 Error rate CE, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(self.history['ErrorRate_ce_top1'][-1], np.min(self.history['ErrorRate_ce_top1']), self.best_ce_er_1_epoch, self.best_ce_er_1_iteration))
-			print('Current Top 5 error rate CE, best top 5 Error rate CE, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(self.history['ErrorRate_ce_top5'][-1], np.min(self.history['ErrorRate_ce_top5']), self.best_ce_er_5_epoch, self.best_ce_er_5_iteration))
-			print('Current Top 1 error rate SIM, best top 1 Error rate SIM, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(self.history['ErrorRate_sim_top1'][-1], np.min(self.history['ErrorRate_sim_top1']), self.best_sim_er_1_epoch, self.best_ce_er_1_iteration))
-			print('Current Top 5 error rate SIM, best top 5 Error rate SIM, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}\n'.format(self.history['ErrorRate_sim_top5'][-1], np.min(self.history['ErrorRate_sim_top5']), self.best_sim_er_5_epoch, self.best_sim_er_5_iteration))
 
 	def checkpointing(self):
 
