@@ -205,7 +205,7 @@ class TrainLoop(object):
 
 			embeddings = self.model.forward(x)
 
-			out_ce = self.model.out_proj(embeddings, y)
+			out_ce = self.model.out_proj(embeddings)
 			pred_ce = F.softmax(out_ce, dim=1).max(1)[1].long()
 			correct_ce = pred_ce.squeeze().eq(y.squeeze()).detach().sum().item()
 

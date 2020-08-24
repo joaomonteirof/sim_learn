@@ -189,7 +189,7 @@ class TrainLoop(object):
 
 			embeddings = self.model.forward(x)
 
-			out_ce = self.model.out_proj(embeddings, y)
+			out_ce = self.model.out_proj(embeddings)
 			pred_ce = F.softmax(out_ce, dim=1)
 			(correct_ce_1, correct_ce_5) = correct_topk(pred_ce, y, (1,5))
 
