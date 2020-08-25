@@ -110,9 +110,9 @@ if __name__ == '__main__':
 
 	# Computing robust accuracy for each attack
 
-	incorrect = torch.zeros(len(epsilons))
-
 	for attack in attacks:
+
+		incorrect = torch.zeros(len(epsilons))
 
 		for batch in test_loader:
 
