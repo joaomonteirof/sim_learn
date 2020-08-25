@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
 	model.eval()
 
-	fmodel = PyTorchModel(model, bounds=(0, 1))
+	fmodel = PyTorchModel(model, bounds=(0, 1), device=device)
 
 	attacks = [
 		fa.FGSM(),
