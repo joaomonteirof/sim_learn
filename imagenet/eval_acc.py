@@ -56,10 +56,10 @@ if __name__ == '__main__':
 
 	if args.cuda:
 		device = get_freer_gpu()
-		model = model.to(device)
 	else:
 		device = torch.device('cpu')
 
+	model = model.to(device)
 	model.centroids = model.centroids.to(device)
 
 	model.eval()
