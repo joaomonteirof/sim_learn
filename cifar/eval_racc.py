@@ -47,7 +47,7 @@ if __name__ == '__main__':
 
 	try:
 		print(model.load_state_dict(ckpt['model_state'], strict=True), '\n')
-		self.model.centroids = ckpt['centroids']
+		model.centroids = ckpt['centroids']
 	except RuntimeError as err:
 		print("Runtime Error: {0}".format(err))
 	except:
@@ -60,7 +60,7 @@ if __name__ == '__main__':
 	else:
 		device = torch.device('cpu')
 
-	self.model.centroids = self.model.centroids.to(device)
+	model.centroids = model.centroids.to(device)
 
 	model = wrapper_racc.wrapper(base_model=model, ce_layer=args.ce_layer)
 
