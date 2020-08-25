@@ -27,6 +27,7 @@ class TrainLoop(object):
 		self.ablation_ce = ablation_ce
 		self.model = model
 		self.optimizer = optimizer
+		self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[25, 100, 300], gamma=0.1)
 		self.max_gnorm = max_gnorm
 		self.train_loader = train_loader
 		self.valid_loader = valid_loader
@@ -116,6 +117,7 @@ class TrainLoop(object):
 			if self.verbose>0:
 				print('Current LR: {}'.format(self.optimizer.param_groups[0]['lr']))
 
+			self.scheduler.step()
 			self.cur_epoch += 1
 
 			if self.valid_loader is not None and self.save_cp and (self.cur_epoch % save_every == 0 or self.history['e2e_eer'][-1] < np.min([np.inf]+self.history['e2e_eer'][:-1]) or self.history['cos_eer'][-1] < np.min([np.inf]+self.history['cos_eer'][:-1])):
@@ -218,6 +220,7 @@ class TrainLoop(object):
 		'hidden_size': self.model.hidden_size,
 		'sm_type': self.model.sm_type,
 		'optimizer_state': self.optimizer.state_dict(),
+		'scheduler_state': self.scheduler.state_dict(),
 		'history': self.history,
 		'total_iters': self.total_iters,
 		'cur_epoch': self.cur_epoch,
@@ -237,6 +240,8 @@ class TrainLoop(object):
 			self.model.centroids = ckpt['centroids']
 			# Load optimizer state
 			self.optimizer.load_state_dict(ckpt['optimizer_state'])
+			# Load scheduler state
+			self.scheduler.load_state_dict(ckpt['scheduler_state'])
 			# Load history
 			self.history = ckpt['history']
 			self.total_iters = ckpt['total_iters']
