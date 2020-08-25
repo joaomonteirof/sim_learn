@@ -66,25 +66,17 @@ if __name__ == '__main__':
 		fa.FGSM(),
 		fa.LinfPGD(),
 		fa.LinfBasicIterativeAttack(),
-		fa.LinfAdditiveUniformNoiseAttack(),
 		fa.LinfDeepFoolAttack(),
 	]
 
 	epsilons = [
 		0.0,
-		0.0005,
-		0.001,
-		0.0015,
-		0.002,
-		0.003,
-		0.005,
-		0.01,
-		0.02,
-		0.03,
-		0.1,
-		0.3,
-		0.5,
-		1.0,
+		8.0/255.0,
+		16.0/255.0,
+		32.0/255.0,
+		48.0/255.0,
+		80.0/255.0,
+		128.0/255.0,
 	]
 
 	print("\nepsilons\n")
