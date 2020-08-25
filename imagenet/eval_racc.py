@@ -70,10 +70,10 @@ if __name__ == '__main__':
 
 	attacks = [
 		fa.FGSM(),
-		fa.LinfBasicIterativeAttack(steps=7),
-		fa.LinfPGD(steps=7),
+		fa.LinfBasicIterativeAttack(steps=10),
+		fa.LinfPGD(steps=10),
 		fa.LinfPGD(steps=20),
-		fa.L2CarliniWagnerAttack(binary_search_steps=30),
+		fa.L2CarliniWagnerAttack(binary_search_steps=10),
 	]
 
 	epsilons = [
