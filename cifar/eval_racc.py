@@ -104,7 +104,6 @@ if __name__ == '__main__':
 			out = model.forward(x)
 			pred = out.max(1)[1].long()
 			correct += pred.squeeze().eq(y).sum().item()
-			break
 
 	print('\nClean Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct/len(testset)))
 
@@ -124,8 +123,7 @@ if __name__ == '__main__':
 
 			_, _, success = attack(fmodel, x, y, epsilons=epsilons)
 
-			incorrect += success.float().sum(-1)
-			break
+			incorrect += success.float().cpu().sum(-1)
 
 		print('\nRobust Accuracy of attack: {}\n'.format(attack))
 		for i, eps in enumerate(epsilons):
