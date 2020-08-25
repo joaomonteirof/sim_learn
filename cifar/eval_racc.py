@@ -27,7 +27,7 @@ if __name__ == '__main__':
 	print('\n', args, '\n')
 
 	transform_test = transforms.Compose([transforms.ToTensor(), transforms.Normalize([x / 255 for x in [125.3, 123.0, 113.9]], [x / 255 for x in [63.0, 62.1, 66.7]])])
-	testset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
+	testset = datasets.CIFAR10(root=args.data_path, train=False, download=True, transform=transform_test)
 	test_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
 
 
