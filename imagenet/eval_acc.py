@@ -46,7 +46,8 @@ if __name__ == '__main__':
 		model = densenet.densenet_cifar(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax)
 	
 	try:
-		model.load_state_dict(ckpt['model_state'], strict=True)
+		print(model.load_state_dict(ckpt['model_state'], strict=True), '\n')
+		self.model.centroids = ckpt['centroids']
 	except RuntimeError as err:
 		print("Runtime Error: {0}".format(err))
 	except:
@@ -55,7 +56,11 @@ if __name__ == '__main__':
 
 	if args.cuda:
 		device = get_freer_gpu()
-		model = model.cuda(device)
+		model = model.to(device)
+	else:
+		device = torch.device('cpu')
+
+	self.model.centroids = self.model.centroids.to(device)
 
 	model.eval()
 

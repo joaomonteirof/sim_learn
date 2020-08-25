@@ -46,20 +46,23 @@ if __name__ == '__main__':
 
 
 	try:
-		model.load_state_dict(ckpt['model_state'], strict=True)
+		print(model.load_state_dict(ckpt['model_state'], strict=True), '\n')
+		self.model.centroids = ckpt['centroids']
 	except RuntimeError as err:
 		print("Runtime Error: {0}".format(err))
 	except:
 		print("Unexpected error:", sys.exc_info()[0])
 		raise
 
-	model = wrapper_racc.wrapper(base_model=model, ce_layer=args.ce_layer)
-
 	if args.cuda:
 		device = get_freer_gpu()
-		model = model.cuda(device)
+		model = model.to(device)
 	else:
 		device = torch.device('cpu')
+
+	self.model.centroids = self.model.centroids.to(device)
+
+	model = wrapper_racc.wrapper(base_model=model, ce_layer=args.ce_layer)
 
 	model.eval()
 
