@@ -23,6 +23,8 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 	args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 
+	print('\n', args, '\n')
+
 	transform_test = transforms.Compose([transforms.ToTensor(), transforms.Normalize([x / 255 for x in [125.3, 123.0, 113.9]], [x / 255 for x in [63.0, 62.1, 66.7]])])
 	testset = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
 	test_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
@@ -50,7 +52,7 @@ if __name__ == '__main__':
 		print("Unexpected error:", sys.exc_info()[0])
 		raise
 
-	model = wrapper_racc.wrapper(base_model=model)
+	model = wrapper_racc.wrapper(base_model=model, ce_layer=args.ce_layer)
 
 	if args.cuda:
 		device = get_freer_gpu()
