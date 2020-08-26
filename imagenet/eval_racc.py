@@ -26,10 +26,10 @@ if __name__ == '__main__':
 
 	print('\n', args, '\n')
 
-	transform_test = transforms.Compose([transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+	transform_test = transforms.Compose([transforms.CenterCrop(224), transforms.ToTensor()])
 	testset = datasets.ImageFolder(args.data_path, transform=transform_test)
 	test_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
-
+	preprocessing = dict(mean=mean, std=std, axis=-3)
 
 	ckpt = torch.load(args.cp_path, map_location = lambda storage, loc: storage)
 	try :
@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
 	model.eval()
 
-	fmodel = PyTorchModel(model, bounds=(0, 1), device=device)
+	fmodel = PyTorchModel(model, bounds=(0, 1), preprocessing=preprocessing, device=device)
 
 	attacks = [
 		fa.FGSM(),
@@ -88,25 +88,6 @@ if __name__ == '__main__':
 
 	print("\nepsilons\n")
 	print(epsilons, '\n')
-
-	## Computing clean accuracy
-
-	correct = 0
-
-	with torch.no_grad():
-
-		for batch in test_loader:
-
-			x, y = batch
-
-			x = x.to(device)
-			y = y.to(device).squeeze()
-
-			out = model.forward(x)
-			pred = out.max(1)[1].long()
-			correct += pred.squeeze().eq(y).sum().item()
-
-	print('\nClean Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct/len(testset)))
 
 
 	# Computing robust accuracy for each attack
