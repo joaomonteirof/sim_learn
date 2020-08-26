@@ -14,7 +14,7 @@ from time import sleep
 import os
 import sys
 from torch.utils.tensorboard import SummaryWriter
-from utils import mean, std, set_np_randomseed, get_freer_gpu, parse_args_for_log
+from utils import mean, std, set_np_randomseed, get_freer_gpu, parse_args_for_log, add_noise
 
 # Training settings
 parser = argparse.ArgumentParser(description='Image retrieval')
@@ -39,7 +39,7 @@ parser.add_argument('--n-workers', type=int, default=4, metavar='N', help='Worke
 parser.add_argument('--model', choices=['vgg', 'resnet', 'densenet'], default='resnet')
 parser.add_argument('--softmax', choices=['softmax', 'am_softmax'], default='softmax', help='Softmax type')
 parser.add_argument('--aug-M', type=int, default=15, metavar='AUGM', help='Augmentation hp. Default is 15')
-parser.add_argument('--aug-N', type=int, default=1, metavar='AUGN', help='Augmentation hp. Default is 1')
+parser.add_argument('--aug-N', type=int, default=2, metavar='AUGN', help='Augmentation hp. Default is 2')
 parser.add_argument('--pretrained', action='store_true', default=False, help='Get pretrained weights on imagenet. Encoder only')
 parser.add_argument('--pretrained-path', type=str, default=None, metavar='Path', help='Path to trained model. Discards output layer')
 parser.add_argument('--hidden-size', type=int, default=512, metavar='S', help='latent layer dimension (default: 512)')
@@ -60,12 +60,12 @@ if args.cuda:
 	torch.backends.cudnn.benchmark=True
 
 if args.hdf_path:
-	transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+	transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std), add_noise()])
 	transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
 	trainset = Loader(args.hdf_path, transform_train)
 	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True, collate_fn=collater)
 else:
-	transform_train = transforms.Compose([transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])	
+	transform_train = transforms.Compose([transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std), add_noise()])	
 	transform_train.transforms.insert(0, RandAugment(args.aug_N, args.aug_M))
 	trainset = datasets.ImageFolder(args.data_path, transform=transform_train)
 	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True)

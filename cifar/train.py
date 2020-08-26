@@ -11,6 +11,7 @@ import numpy as np
 from time import sleep
 import os
 import sys
+from utils import add_noise
 
 def set_np_randomseed(worker_id):
 	np.random.seed(np.random.get_state()[1][0]+worker_id)
@@ -57,6 +58,8 @@ parser.add_argument('--no-cuda', action='store_true', default=False, help='Disab
 parser.add_argument('--no-cp', action='store_true', default=False, help='Disables checkpointing')
 parser.add_argument('--ablation-sim', action='store_true', default=False, help='Disables similarity learning')
 parser.add_argument('--ablation-ce', action='store_true', default=False, help='Disables auxiliary classification loss')
+parser.add_argument('--add-noise', action='store_true', default=False, help='Enales additive gaussian distortions and disables randaugment')
+parser.add_argument('--pretrained-path', type=str, default=None, metavar='Path', help='Path to trained model')
 parser.add_argument('--verbose', type=int, default=1, metavar='N', help='Verbose is activated if > 0')
 args = parser.parse_args()
 args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
@@ -68,7 +71,7 @@ transform_train = transforms.Compose([transforms.RandomCrop(32, padding=4), tran
 transform_test = transforms.Compose([transforms.ToTensor(), transforms.Normalize([x / 255 for x in [125.3, 123.0, 113.9]], [x / 255 for x in [63.0, 62.1, 66.7]])])
 
 #trainset = Loader(args.data_path)
-transform_train.transforms.insert(0, RandAugment(args.aug_N, args.aug_M))
+transform_train.transforms.insert(-1, add_noise()) if args.add_noise else transform_train.transforms.insert(0, RandAugment(args.aug_N, args.aug_M))
 trainset = datasets.CIFAR10(root=args.data_path, train=True, download=True, transform=transform_train)
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed)
 
@@ -76,10 +79,21 @@ train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,
 validset = datasets.CIFAR10(root=args.data_path, train=False, download=True, transform=transform_test)
 valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=False, num_workers=args.n_workers)
 
+if args.pretrained_path:
+	print('\nLoading pretrained model from: {}\n'.format(args.pretrained_path))
+	ckpt=torch.load(args.pretrained_path, map_location = lambda storage, loc: storage)
+	args.dropout_prob, args.n_hidden, args.hidden_size = ckpt['dropout_prob'], ckpt['n_hidden'], ckpt['hidden_size']
+	print('\nUsing pretrained config for discriminator. Ignoring args.')
+
 if args.model == 'resnet':
 	model = resnet.ResNet18(nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing)
 elif args.model == 'wideresnet':
 	model = wideresnet.WideResNet(nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing)
+
+if args.pretrained_path:
+	print(model.load_state_dict(ckpt['model_state'], strict=False))
+	model.centroids = ckpt['centroids']
+	print('\n')
 
 if args.verbose >0:
 	print('\n', model, '\n')

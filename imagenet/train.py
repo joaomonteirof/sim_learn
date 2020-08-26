@@ -14,7 +14,7 @@ from time import sleep
 import os
 import sys
 from torch.utils.tensorboard import SummaryWriter
-from utils import mean, std, set_np_randomseed, get_freer_gpu, parse_args_for_log
+from utils import mean, std, set_np_randomseed, get_freer_gpu, parse_args_for_log, add_noise
 
 # Training settings
 parser = argparse.ArgumentParser(description='Imagenet classification')
@@ -52,6 +52,7 @@ parser.add_argument('--no-cp', action='store_true', default=False, help='Disable
 parser.add_argument('--verbose', type=int, default=1, metavar='N', help='Verbose is activated if > 0')
 parser.add_argument('--ablation-sim', action='store_true', default=False, help='Disables similarity learning')
 parser.add_argument('--ablation-ce', action='store_true', default=False, help='Disables auxiliary classification loss')
+parser.add_argument('--add-noise', action='store_true', default=False, help='Enales additive gaussian distortions and disables randaugment')
 parser.add_argument('--logdir', type=str, default=None, metavar='Path', help='Path for checkpointing')
 args = parser.parse_args()
 args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
@@ -61,12 +62,12 @@ if args.cuda:
 
 if args.hdf_path:
 	transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
-	transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
+	transform_train.transforms.append(add_noise()) if args.add_noise else transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
 	trainset = Loader(args.hdf_path, transform_train)
 	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True, collate_fn=collater)
 else:
 	transform_train = transforms.Compose([transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])	
-	transform_train.transforms.insert(0, RandAugment(args.aug_N, args.aug_M))
+	transform_train.transforms.append(add_noise()) if args.add_noise else transform_train.transforms.insert(0, RandAugment(args.aug_N, args.aug_M))
 	trainset = datasets.ImageFolder(args.data_path, transform=transform_train)
 	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True)
 
@@ -97,14 +98,19 @@ elif args.model == 'densenet':
 	model = densenet.DenseNet121(nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing, n_classes=args.nclasses)
 
 if args.pretrained_path:
-	if ckpt['sm_type'] == 'am_softmax':
+	if ckpt['sm_type'] == 'am_softmax' and ckpt['model_state']['out_proj.w'].size(1) != args.nclasses:
 		del(ckpt['model_state']['out_proj.w'])
+		print('\nRandomly initialized output layer will be used since the number of classes is different between train data and pretrained model\n')
 	elif ckpt['model_state']['out_proj.w.weight'].size(0) != args.nclasses:
 		del(ckpt['model_state']['out_proj.w.weight'])
 		del(ckpt['model_state']['out_proj.w.bias'])
 		print('\nRandomly initialized output layer will be used since the number of classes is different between train data and pretrained model\n')
 
 	print(model.load_state_dict(ckpt['model_state'], strict=False))
+	if args.nclasses == ckpt['centroids'].size(0):
+		model.centroids = ckpt['centroids']
+	else:
+		print('\nRandomly initialized centroids will be used since the number of classes is different between train data and pretrained model\n')
 	print('\n')
 
 elif args.pretrained:
