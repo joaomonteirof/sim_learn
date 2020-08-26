@@ -166,7 +166,7 @@ class TrainLoop(object):
 		y = y.to(self.device)
 
 		if self.adv_train and not self.ablation_ce:
-			target_model = wrapper(base_model=model, inf_mode='ce')
+			target_model = wrapper(base_model=self.model, inf_mode='ce')
 			adversary = LinfPGDAttack(target_model, loss_fn=torch.nn.CrossEntropyLoss(reduction="sum"), eps=16.0/255.0, nb_iter=10, 
 			eps_iter=0.01, rand_init=True, clip_min=-2.0, clip_max=2.0, targeted=False)
 			with ctx_noparamgrad_and_eval(model):
