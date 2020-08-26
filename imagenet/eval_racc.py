@@ -18,7 +18,7 @@ if __name__ == '__main__':
 	parser.add_argument('--data-path', type=str, default='./data/', metavar='Path', help='Path to data')
 	parser.add_argument('--batch-size', type=int, default=100, metavar='N', help='input batch size for testing (default: 100)')
 	parser.add_argument('--model', choices=['vgg', 'resnet', 'densenet'], default='resnet')
-	parser.add_argument('--ce-layer', action='store_true', default=False, help='Uses standard output layer to compute and evaluate attacks')
+	parser.add_argument('--inf-mode', choices=['sim', 'ce', 'fus'], default='sim', help='Inference mode')
 	parser.add_argument('--workers', type=int, default=4, metavar='N', help='Data load workers (default: 4)')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
 	args = parser.parse_args()
@@ -62,7 +62,7 @@ if __name__ == '__main__':
 	model = model.to(device)
 	model.centroids = model.centroids.to(device)
 
-	model = wrapper_racc.wrapper(base_model=model, ce_layer=args.ce_layer)
+	model = wrapper_racc.wrapper(base_model=model, inf_mode=args.inf_mode)
 
 	model.eval()
 
