@@ -59,6 +59,7 @@ parser.add_argument('--no-cp', action='store_true', default=False, help='Disable
 parser.add_argument('--ablation-sim', action='store_true', default=False, help='Disables similarity learning')
 parser.add_argument('--ablation-ce', action='store_true', default=False, help='Disables auxiliary classification loss')
 parser.add_argument('--add-noise', action='store_true', default=False, help='Enales additive gaussian distortions and disables randaugment')
+parser.add_argument('--adv-train', action='store_true', default=False, help='Enales adversarial training')
 parser.add_argument('--pretrained-path', type=str, default=None, metavar='Path', help='Path to trained model')
 parser.add_argument('--verbose', type=int, default=1, metavar='N', help='Verbose is activated if > 0')
 args = parser.parse_args()
@@ -106,7 +107,7 @@ optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.l2, mome
 
 trainer = TrainLoop(model, optimizer, train_loader, valid_loader, label_smoothing=args.smoothing,
 			verbose=args.verbose, save_cp=(not args.no_cp), checkpoint_path=args.checkpoint_path,
-			checkpoint_epoch=args.checkpoint_epoch, ablation_sim=args.ablation_sim, ablation_ce=args.ablation_ce, cuda=args.cuda)
+			checkpoint_epoch=args.checkpoint_epoch, ablation_sim=args.ablation_sim, ablation_ce=args.ablation_ce, cuda=args.cuda, adv_train=args.adv_train)
 
 if args.verbose >0:
 	args_dict = dict(vars(args))
