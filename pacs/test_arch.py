@@ -19,7 +19,7 @@ args = parser.parse_args()
 if args.model == 'resnet':
 	model = resnet.ResNet50(nh=args.n_hidden, n_h=args.hidden_size)
 
-x, y = torch.rand(args.batch_size, 3, 224, 224), torch.randint(1000, (args.batch_size,)).long()
+x, y = torch.rand(args.batch_size, 3, 222, 222), torch.randint(7, (args.batch_size,)).long()
 
 emb = model.forward(x)
 

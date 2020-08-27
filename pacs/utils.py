@@ -1,28 +1,35 @@
+import numpy as np
+from numpy.lib.stride_tricks import as_strided
+from sklearn import metrics
+
 import torch
-import math
-from torch import nn
-from scipy.special import binom
-import torch.nn.functional as F
+import itertools
+import os
+import sys
+import pickle
+from time import sleep
+import random
 
-def parse_args_for_log(args):
-	args_dict = dict(vars(args))
-	for arg_key in args_dict:
-		if args_dict[arg_key] is None:
-			args_dict[arg_key] = 'None'
+mean, std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
 
-	return args_dict
+class add_noise(object):
+	"""add noise
+	"""
 
-def compare_parameters(model1, model2):
+	def __call__(self, pic):
+		"""
+		Args:
+			pic (Torch tensor of arbitrary shape): Image to be distorted.
+		Returns:
+			Tensor: Distorted image.
+		"""
+		if random.random()>0.5:
+			pic += torch.randn_like(pic)*random.choice([1e-1])
 
-	for p1, p2 in zip(model1.parameters(), model2.parameters()):
-		try: 
-			if p1.allclose(p2): 
-				print('equal')
-			else:
-				print('diff')	
-			
-		except:
-	 		print('diff layer')
+		return pic
+
+	def __repr__(self):
+		return self.__class__.__name__ + '()'
 
 def get_centroids(embeddings, targets, num_classes):
 
@@ -38,99 +45,165 @@ def get_centroids(embeddings, targets, num_classes):
 
 	return centroids, mask
 
+def adjust_learning_rate(optimizer, epoch, base_lr, n_epochs=30, lr_factor=0.1, min_lr=1e-8):
+	"""Sets the learning rate to the initial LR decayed by 10 every n_epochs epochs"""
+	lr = max( base_lr * (lr_factor ** (epoch // n_epochs)), min_lr)
+	for param_group in optimizer.param_groups:
+		param_group['lr'] = lr
 
-class LabelSmoothingWithLogitsLoss(nn.Module):
-	def __init__(self, label_smoothing, lbl_set_size, dim=1):
-		super(LabelSmoothingWithLogitsLoss, self).__init__()
-		self.confidence = 1.0 - label_smoothing
-		self.smoothing = label_smoothing
-		self.cls = lbl_set_size
-		self.dim = dim
+def correct_topk(output, target, topk=(1,)):
+	"""Computes the number of correct predicitions over the k top predictions for the specified values of k"""
+	with torch.no_grad():
+		maxk = max(topk)
+		batch_size = target.size(0)
 
-	def forward(self, pred, target):
-		pred = pred.log_softmax(dim=self.dim)
-		with torch.no_grad():
-			# true_dist = pred.data.clone()
-			true_dist = torch.zeros_like(pred)
-			true_dist.fill_(self.smoothing / (self.cls - 1))
-			true_dist.scatter_(1, target.data.unsqueeze(1), self.confidence)
+		_, pred = output.topk(maxk, 1, True, True)
+		pred = pred.t()
+		correct = pred.eq(target.view(1, -1).expand_as(pred))
 
-		return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
+		res = []
+		for k in topk:
+			correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+			res.append(correct_k)
+		return res
 
-class LabelSmoothingNLLLoss(nn.Module):
-	def __init__(self, label_smoothing, lbl_set_size, dim=1):
-		super(LabelSmoothingNLLLoss, self).__init__()
-		self.confidence = 1.0 - label_smoothing
-		self.smoothing = label_smoothing
-		self.cls = lbl_set_size
-		self.dim = dim
+def parse_args_for_log(args):
+	args_dict = dict(vars(args))
+	for arg_key in args_dict:
+		if args_dict[arg_key] is None:
+			args_dict[arg_key] = 'None'
 
-	def forward(self, pred, target):
-		with torch.no_grad():
-			# true_dist = pred.data.clone()
-			true_dist = torch.zeros_like(pred)
-			true_dist.fill_(self.smoothing / (self.cls - 1))
-			true_dist.scatter_(1, target.data.unsqueeze(1), self.confidence)
+	return args_dict
 
-		return torch.mean(torch.sum(-true_dist * pred, dim=self.dim))
-		
+def set_np_randomseed(worker_id):
+	np.random.seed(np.random.get_state()[1][0]+worker_id)
 
-## Copied from https://github.com/ildoonet/pytorch-gradual-warmup-lr/blob/master/warmup_scheduler/scheduler.py		
-from torch.optim.lr_scheduler import _LRScheduler
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+def get_freer_gpu(trials=10):
+	sleep(2)
+	for j in range(trials):
+		os.system('nvidia-smi -q -d Memory |grep -A4 GPU|grep Free >tmp')
+		memory_available = [int(x.split()[2]) for x in open('tmp', 'r').readlines()]
+		dev_ = torch.device('cuda:'+str(np.argmax(memory_available)))
+		try:
+			a = torch.rand(1).cuda(dev_)
+			return dev_
+		except:
+			pass
 
-class GradualWarmupScheduler(_LRScheduler):
+	print('NO GPU AVAILABLE!!!')
+	exit(1)
 
-	""" Gradually warm-up(increasing) learning rate in optimizer.
-	Proposed in 'Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour'.
+def strided_app(a, L, S):
+	nrows = ( (len(a)-L) // S ) + 1
+	n = a.strides[0]
+	return as_strided(a, shape=(nrows, L), strides=(S*n,n))
 
-	Args:
-		optimizer (Optimizer): Wrapped optimizer.
-		multiplier: target learning rate = base lr * multiplier
-		total_epoch: target learning rate is reached at total_epoch, gradually
-		after_scheduler: after target_epoch, use this scheduler(eg. ReduceLROnPlateau)
-	"""
+def get_classifier_config_from_cp(ckpt):
+	keys=ckpt['model_state'].keys()
+	classifier_params=[]
+	out_proj_params=[]
+	for x in keys:
+		if 'classifier' in x:
+			classifier_params.append(x)
+		elif 'out_proj' in x:
+			out_proj_params.append(x)
+	
+	n_hidden, hidden_size, softmax = max(len(classifier_params)//2 - 1, 1), ckpt['model_state']['classifier.0.weight'].size(0), 'am_softmax' if len(out_proj_params)==1 else 'softmax'
 
-	def __init__(self, optimizer, total_epoch, init_lr=1e-7, after_scheduler=None):
-		self.init_lr = init_lr
-		assert init_lr>0, 'Initial LR should be greater than 0.'
-		self.total_epoch = total_epoch
-		self.after_scheduler = after_scheduler
-		self.finished = False
-		super().__init__(optimizer)
+	if softmax == 'am_softmax':
+		n_classes = ckpt['model_state']['out_proj.w'].size(1)
+	elif softmax == 'softmax':
+		n_classes = ckpt['model_state']['out_proj.w.weight'].size(0)
 
-	def get_lr(self):
-		if self.last_epoch > self.total_epoch:
-			if self.after_scheduler:
-				if not self.finished:
-					self.finished = True
-				return self.after_scheduler.get_lr()
-			return self.base_lrs
+	return n_hidden, hidden_size, softmax, n_classes
 
-		return [(((base_lr - self.init_lr)/self.total_epoch) * self.last_epoch + self.init_lr) for base_lr in self.base_lrs]
+def create_trials_labels(labels_list, max_n_trials=1e8):
 
-	def step_ReduceLROnPlateau(self, metrics, epoch=None):
-		if epoch is None:
-			epoch = self.last_epoch + 1
-		self.last_epoch = epoch if epoch != 0 else 1  # ReduceLROnPlateau is called at the end of epoch, whereas others are called at beginning
-		if self.last_epoch <= self.total_epoch:
-			warmup_lr = [(((base_lr - self.init_lr)/self.total_epoch) * self.last_epoch + self.init_lr) for base_lr in self.base_lrs]
-			for param_group, lr in zip(self.optimizer.param_groups, warmup_lr):
-				param_group['lr'] = lr
+	enroll_ex, test_ex, labels = [], [], []
+
+	for i, prod_exs in enumerate(itertools.combinations(list(range(len(labels_list))), 2)):
+
+		enroll_ex.append(prod_exs[0])
+		test_ex.append(prod_exs[1])
+
+		if labels_list[prod_exs[0]]==labels_list[prod_exs[1]]:
+			labels.append(1)
 		else:
-			if epoch is None:
-				self.after_scheduler.step(metrics, None)
-			else:
-				self.after_scheduler.step(metrics, epoch - self.total_epoch)
+			labels.append(0)
 
-	def step(self, epoch=None, metrics=None):
-		if type(self.after_scheduler) != ReduceLROnPlateau:
-			if (self.finished and self.after_scheduler) or self.total_epoch==0:
-				if epoch is None:
-					self.after_scheduler.step(None)
-				else:
-					self.after_scheduler.step(epoch - self.total_epoch)
-			else:
-				return super(GradualWarmupScheduler, self).step(epoch)
-		else:
-			self.step_ReduceLROnPlateau(metrics, epoch)		
+		if i>=max_n_trials: break
+
+	return enroll_ex, test_ex, labels
+
+def set_np_randomseed(worker_id):
+	np.random.seed(np.random.get_state()[1][0]+worker_id)
+
+def get_freer_gpu(trials=10):
+	sleep(5)
+	for j in range(trials):
+		os.system('nvidia-smi -q -d Memory |grep -A4 GPU|grep Free >tmp')
+		memory_available = [int(x.split()[2]) for x in open('tmp', 'r').readlines()]
+		dev_ = torch.device('cuda:'+str(np.argmax(memory_available)))
+		try:
+			a = torch.rand(1).cuda(dev_)
+			return dev_
+		except:
+			pass
+
+	print('NO GPU AVAILABLE!!!')
+	exit(1)
+
+def compute_eer(y, y_score):
+	fpr, tpr, thresholds = metrics.roc_curve(y, y_score, pos_label=1)
+	fnr = 1 - tpr
+
+	t = np.nanargmin(np.abs(fnr-fpr))
+	eer_low, eer_high = min(fnr[t],fpr[t]), max(fnr[t],fpr[t])
+	eer = (eer_low+eer_high)*0.5
+
+	return eer
+
+def compute_metrics(y, y_score):
+	fpr, tpr, thresholds = metrics.roc_curve(y, y_score, pos_label=1)
+	fnr = 1 - tpr
+	t = np.nanargmin(np.abs(fnr-fpr))
+
+	eer_threshold = thresholds[t]
+
+	eer_low, eer_high = min(fnr[t],fpr[t]), max(fnr[t],fpr[t])
+	eer = (eer_low+eer_high)*0.5
+
+	auc = metrics.auc(fpr, tpr)
+
+	avg_precision = metrics.average_precision_score(y, y_score)
+
+	pred = np.asarray([1 if score > eer_threshold else 0 for score in y_score])
+	acc = metrics.accuracy_score(y ,pred)
+
+	return eer, auc, avg_precision, acc, eer_threshold
+
+def read_trials(path):
+	with open(path, 'r') as file:
+		utt_labels = file.readlines()
+
+	enroll_utt_list, test_utt_list, labels_list = [], [], []
+
+	for line in utt_labels:
+		enroll_utt, test_utt, label = line.split(' ')
+		enroll_utt_list.append(enroll_utt)
+		test_utt_list.append(test_utt)
+		labels_list.append(1 if label=='target\n' else 0)
+
+	return enroll_utt_list, test_utt_list, labels_list
+
+def read_spk2utt(path):
+	with open(path, 'r') as file:
+		rows = file.readlines()
+
+	spk2utt_dict = {}
+
+	for row in rows:
+		spk_utts = row.replace('\n','').split(' ')
+		spk2utt_dict[spk_utts[0]] = spk_utts[1:]
+
+	return spk2utt_dict

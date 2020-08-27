@@ -28,7 +28,7 @@ class TrainLoop(object):
 		self.ablation_ce = ablation_ce
 		self.model = model
 		self.optimizer = optimizer
-		self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[4, 15], gamma=0.1)
+		self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[20, 60], gamma=0.1)
 		self.max_gnorm = max_gnorm
 		self.train_loader = train_loader
 		self.valid_loader = valid_loader
@@ -40,11 +40,11 @@ class TrainLoop(object):
 		self.device = next(self.model.parameters()).device
 		self.logger = logger
 		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'sim_loss': [], 'sim_loss_batch': [], 'bin_loss': [], 'bin_loss_batch': []}
-		self.best_e2e_eer, self.best_cos_eer, self.best_ce_er_1, self.best_ce_er_5, self.best_sim_er_1, self.best_sim_er_5 = np.inf, np.inf, np.inf, np.inf, np.inf, np.inf
+		self.best_e2e_eer, self.best_cos_eer, self.best_ce_er_1, self.best_ce_er_3, self.best_sim_er_1, self.best_sim_er_3 = np.inf, np.inf, np.inf, np.inf, np.inf, np.inf
 
 		if label_smoothing>0.0:
 			self.ce_criterion = LabelSmoothingLoss(label_smoothing, lbl_set_size=self.model.n_classes)
-			self.disc_label_smoothing = label_smoothing*0.5
+			self.disc_label_smoothing = label_smoothing
 		else:
 			self.ce_criterion = torch.nn.CrossEntropyLoss()
 			self.disc_label_smoothing = 0.0
@@ -53,9 +53,9 @@ class TrainLoop(object):
 			self.history['e2e_eer'] = []
 			self.history['cos_eer'] = []
 			self.history['ErrorRate_sim_top1'] = []
-			self.history['ErrorRate_sim_top5'] = []
+			self.history['ErrorRate_sim_top3'] = []
 			self.history['ErrorRate_ce_top1'] = []
-			self.history['ErrorRate_ce_top5'] = []
+			self.history['ErrorRate_ce_top3'] = []
 
 		if checkpoint_epoch is not None:
 			self.load_checkpoint(self.save_epoch_fmt.format(checkpoint_epoch))
@@ -129,7 +129,7 @@ class TrainLoop(object):
 			print('Training done!')
 
 		if self.valid_loader is not None:
-			return [np.min(self.history['e2e_eer']), np.min(self.history['cos_eer']), np.min(self.history['ErrorRate_ce_top1']), np.min(self.history['ErrorRate_ce_top5']), np.min(self.history['ErrorRate_sim_top1']), np.min(self.history['ErrorRate_sim_top5'])]
+			return [np.min(self.history['e2e_eer']), np.min(self.history['cos_eer']), np.min(self.history['ErrorRate_ce_top1']), np.min(self.history['ErrorRate_ce_top3']), np.min(self.history['ErrorRate_sim_top1']), np.min(self.history['ErrorRate_sim_top3'])]
 		else:
 			return [np.min(self.history['train_loss'])]
 
@@ -194,11 +194,11 @@ class TrainLoop(object):
 
 			out_ce = self.model.out_proj(embeddings)
 			pred_ce = F.softmax(out_ce, dim=1)
-			(correct_ce_1, correct_ce_5) = correct_topk(pred_ce, y, (1,5))
+			(correct_ce_1, correct_ce_3) = correct_topk(pred_ce, y, (1,3))
 
 			out_sim = self.model.compute_logits(embeddings)
 			pred_sim = F.softmax(out_sim, dim=1)
-			(correct_sim_1, correct_sim_5) = correct_topk(pred_sim, y, (1,5))
+			(correct_sim_1, correct_sim_3) = correct_topk(pred_sim, y, (1,3))
 
 			# Get all triplets now for bin classifier
 			triplets_idx = self.harvester.get_triplets(embeddings.detach(), y)
@@ -213,18 +213,18 @@ class TrainLoop(object):
 			cos_scores_p = torch.nn.functional.cosine_similarity(emb_a, emb_p)
 			cos_scores_n = torch.nn.functional.cosine_similarity(emb_a, emb_n)
 
-		return correct_ce_1, correct_ce_5, correct_sim_1, correct_sim_5, x.size(0), np.concatenate([e2e_scores_p.detach().cpu().numpy(), e2e_scores_n.detach().cpu().numpy()], 0), np.concatenate([cos_scores_p.detach().cpu().numpy(), cos_scores_n.detach().cpu().numpy()], 0), np.concatenate([np.ones(e2e_scores_p.size(0)), np.zeros(e2e_scores_n.size(0))], 0)
+		return correct_ce_1, correct_ce_3, correct_sim_1, correct_sim_3, x.size(0), np.concatenate([e2e_scores_p.detach().cpu().numpy(), e2e_scores_n.detach().cpu().numpy()], 0), np.concatenate([cos_scores_p.detach().cpu().numpy(), cos_scores_n.detach().cpu().numpy()], 0), np.concatenate([np.ones(e2e_scores_p.size(0)), np.zeros(e2e_scores_n.size(0))], 0)
 
 	def evaluate(self):
 
 		if self.verbose>0:
 			print('\nIteration {} - Epoch {}'.format(self.total_iters, self.cur_epoch))
 
-		tot_correct_ce_1, tot_correct_ce_5, tot_correct_sim_1, tot_correct_sim_5, tot_ = 0, 0, 0, 0, 0
+		tot_correct_ce_1, tot_correct_ce_3, tot_correct_sim_1, tot_correct_sim_3, tot_ = 0, 0, 0, 0, 0
 		e2e_scores, cos_scores, labels = None, None, None
 
 		for t, batch in enumerate(self.valid_loader):
-			correct_ce_1, correct_ce_5, correct_sim_1, correct_sim_5, total, e2e_scores_batch, cos_scores_batch, labels_batch = self.valid(batch)
+			correct_ce_1, correct_ce_3, correct_sim_1, correct_sim_3, total, e2e_scores_batch, cos_scores_batch, labels_batch = self.valid(batch)
 
 			try:
 				e2e_scores = np.concatenate([e2e_scores, e2e_scores_batch], 0)
@@ -234,17 +234,17 @@ class TrainLoop(object):
 				e2e_scores, cos_scores, labels = e2e_scores_batch, cos_scores_batch, labels_batch
 
 			tot_correct_ce_1 += correct_ce_1
-			tot_correct_ce_5 += correct_ce_5
+			tot_correct_ce_3 += correct_ce_3
 			tot_correct_sim_1 += correct_sim_1
-			tot_correct_sim_5 += correct_sim_5
+			tot_correct_sim_3 += correct_sim_3
 			tot_ += total
 
 		self.history['e2e_eer'].append(compute_eer(labels, e2e_scores))
 		self.history['cos_eer'].append(compute_eer(labels, cos_scores))
 		self.history['ErrorRate_ce_top1'].append(1.-float(tot_correct_ce_1)/tot_)
-		self.history['ErrorRate_ce_top5'].append(1.-float(tot_correct_ce_5)/tot_)
+		self.history['ErrorRate_ce_top3'].append(1.-float(tot_correct_ce_3)/tot_)
 		self.history['ErrorRate_sim_top1'].append(1.-float(tot_correct_sim_1)/tot_)
-		self.history['ErrorRate_sim_top5'].append(1.-float(tot_correct_sim_5)/tot_)
+		self.history['ErrorRate_sim_top3'].append(1.-float(tot_correct_sim_3)/tot_)
 
 		if self.history['e2e_eer'][-1]<self.best_e2e_eer:
 			self.best_e2e_eer = self.history['e2e_eer'][-1]
@@ -261,30 +261,30 @@ class TrainLoop(object):
 			self.best_ce_er_1_epoch = self.cur_epoch
 			self.best_ce_er_1_iteration = self.total_iters
 
-		if self.history['ErrorRate_ce_top5'][-1]<self.best_ce_er_5:
-			self.best_ce_er_5 = self.history['ErrorRate_ce_top5'][-1]
-			self.best_ce_er_5_epoch = self.cur_epoch
-			self.best_ce_er_5_iteration = self.total_iters
+		if self.history['ErrorRate_ce_top3'][-1]<self.best_ce_er_3:
+			self.best_ce_er_3 = self.history['ErrorRate_ce_top3'][-1]
+			self.best_ce_er_3_epoch = self.cur_epoch
+			self.best_ce_er_3_iteration = self.total_iters
 
 		if self.history['ErrorRate_sim_top1'][-1]<self.best_sim_er_1:
 			self.best_sim_er_1 = self.history['ErrorRate_sim_top1'][-1]
 			self.best_sim_er_1_epoch = self.cur_epoch
 			self.best_sim_er_1_iteration = self.total_iters
 
-		if self.history['ErrorRate_sim_top5'][-1]<self.best_sim_er_5:
-			self.best_sim_er_5 = self.history['ErrorRate_sim_top5'][-1]
-			self.best_sim_er_5_epoch = self.cur_epoch
-			self.best_sim_er_5_iteration = self.total_iters
+		if self.history['ErrorRate_sim_top3'][-1]<self.best_sim_er_3:
+			self.best_sim_er_3 = self.history['ErrorRate_sim_top3'][-1]
+			self.best_sim_er_3_epoch = self.cur_epoch
+			self.best_sim_er_3_iteration = self.total_iters
 
 		if self.logger:
 			self.logger.add_scalar('Valid/CE Top 1 ER', self.history['ErrorRate_ce_top1'][-1], self.total_iters)
-			self.logger.add_scalar('Valid/CE Top 5 ER', self.history['ErrorRate_ce_top5'][-1], self.total_iters)
+			self.logger.add_scalar('Valid/CE Top 3 ER', self.history['ErrorRate_ce_top3'][-1], self.total_iters)
 			self.logger.add_scalar('Valid/Best CE Top 1 ER', np.min(self.history['ErrorRate_ce_top1']), self.total_iters)
-			self.logger.add_scalar('Valid/Best CE Top 5 ER', np.min(self.history['ErrorRate_ce_top5']), self.total_iters)
+			self.logger.add_scalar('Valid/Best CE Top 3 ER', np.min(self.history['ErrorRate_ce_top3']), self.total_iters)
 			self.logger.add_scalar('Valid/SIM Top 1 ER', self.history['ErrorRate_sim_top1'][-1], self.total_iters)
-			self.logger.add_scalar('Valid/SIM Top 5 ER', self.history['ErrorRate_sim_top5'][-1], self.total_iters)
+			self.logger.add_scalar('Valid/SIM Top 3 ER', self.history['ErrorRate_sim_top3'][-1], self.total_iters)
 			self.logger.add_scalar('Valid/Best SIM Top 1 ER', np.min(self.history['ErrorRate_sim_top1']), self.total_iters)
-			self.logger.add_scalar('Valid/Best SIM Top 5 ER', np.min(self.history['ErrorRate_sim_top5']), self.total_iters)
+			self.logger.add_scalar('Valid/Best SIM Top 3 ER', np.min(self.history['ErrorRate_sim_top3']), self.total_iters)
 			self.logger.add_scalar('Valid/E2E EER', self.history['e2e_eer'][-1], self.total_iters)
 			self.logger.add_scalar('Valid/Best E2E EER', np.min(self.history['e2e_eer']), self.total_iters)
 			self.logger.add_scalar('Valid/Cosine EER', self.history['cos_eer'][-1], self.total_iters)
@@ -300,9 +300,9 @@ class TrainLoop(object):
 			print('\nCurrent e2e EER, best e2e EER, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(self.history['e2e_eer'][-1], np.min(self.history['e2e_eer']), self.best_e2e_eer_epoch, self.best_e2e_eer_iteration))
 			print('Current cos EER, best cos EER, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(self.history['cos_eer'][-1], np.min(self.history['cos_eer']), self.best_cos_eer_epoch, self.best_cos_eer_iteration))
 			print('Current Top 1 error rate CE, best top 1 Error rate CE, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(self.history['ErrorRate_ce_top1'][-1], np.min(self.history['ErrorRate_ce_top1']), self.best_ce_er_1_epoch, self.best_ce_er_1_iteration))
-			print('Current Top 5 error rate CE, best top 5 Error rate CE, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(self.history['ErrorRate_ce_top5'][-1], np.min(self.history['ErrorRate_ce_top5']), self.best_ce_er_5_epoch, self.best_ce_er_5_iteration))
+			print('Current Top 3 error rate CE, best top 3 Error rate CE, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(self.history['ErrorRate_ce_top3'][-1], np.min(self.history['ErrorRate_ce_top3']), self.best_ce_er_3_epoch, self.best_ce_er_3_iteration))
 			print('Current Top 1 error rate SIM, best top 1 Error rate SIM, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(self.history['ErrorRate_sim_top1'][-1], np.min(self.history['ErrorRate_sim_top1']), self.best_sim_er_1_epoch, self.best_ce_er_1_iteration))
-			print('Current Top 5 error rate SIM, best top 5 Error rate SIM, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}\n'.format(self.history['ErrorRate_sim_top5'][-1], np.min(self.history['ErrorRate_sim_top5']), self.best_sim_er_5_epoch, self.best_sim_er_5_iteration))
+			print('Current Top 3 error rate SIM, best top 3 Error rate SIM, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}\n'.format(self.history['ErrorRate_sim_top3'][-1], np.min(self.history['ErrorRate_sim_top3']), self.best_sim_er_3_epoch, self.best_sim_er_3_iteration))
 
 	def checkpointing(self):
 

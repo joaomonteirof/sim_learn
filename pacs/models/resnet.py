@@ -266,17 +266,17 @@ class ResNet(nn.Module):
 			return self.forward_bin(centroids, emb).squeeze(-1).transpose(1,-1)
 
 
-def ResNet18(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=1000, centroids_lambda=0.9):
+def ResNet18(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=7, centroids_lambda=0.9):
 	return ResNet(BasicBlock, [2,2,2,2], nh=nh, n_h=n_h, sm_type=sm_type, dropout_prob=dropout_prob, num_classes=n_classes, centroids_lambda=centroids_lambda)
 
-def ResNet34(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=1000, centroids_lambda=0.9):
+def ResNet34(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=7, centroids_lambda=0.9):
 	return ResNet(BasicBlock, [3,4,6,3], nh=nh, n_h=n_h, sm_type=sm_type, dropout_prob=dropout_prob, num_classes=n_classes, centroids_lambda=centroids_lambda)
 
-def ResNet50(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=1000, centroids_lambda=0.9):
+def ResNet50(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=7, centroids_lambda=0.9):
 	return ResNet(Bottleneck, [3,4,6,3], nh=nh, n_h=n_h, sm_type=sm_type, dropout_prob=dropout_prob, num_classes=n_classes, centroids_lambda=centroids_lambda)
 
-def ResNet101(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=1000, centroids_lambda=0.9):
+def ResNet101(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=7, centroids_lambda=0.9):
 	return ResNet(Bottleneck, [3,4,23,3], nh=nh, n_h=n_h, sm_type=sm_type, dropout_prob=dropout_prob, num_classes=n_classes, centroids_lambda=centroids_lambda)
 
-def ResNet152(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=1000, centroids_lambda=0.9):
+def ResNet152(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=7, centroids_lambda=0.9):
 	return ResNet(Bottleneck, [3,8,36,3], nh=nh, n_h=n_h, sm_type=sm_type, dropout_prob=dropout_prob, num_classes=n_classes, centroids_lambda=centroids_lambda)

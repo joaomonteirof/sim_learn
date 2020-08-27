@@ -9,6 +9,22 @@ from torchvision import transforms
 import torchvision
 import random
 
+def collater(batch):
+
+	data, labels = [], []
+
+	for item in batch:
+		data.append(item[0].unsqueeze(0))
+		data.append(item[1].unsqueeze(0))
+		data.append(item[2].unsqueeze(0))
+		labels.append(item[3].unsqueeze(0))
+		labels.append(item[4].unsqueeze(0))
+		labels.append(item[5].unsqueeze(0))
+
+	data, labels = torch.cat(data, dim=0).float().contiguous(), torch.cat(labels, dim=0).long()
+
+	return data, labels
+
 class Loader_validation(data.Dataset):
 	def __init__(self, hdf_path, transform=None):
 		self.hdf_path = hdf_path
@@ -32,12 +48,12 @@ class Loader_validation(data.Dataset):
 		else:
 			data = torch.from_numpy(np.transpose(hf['X'][idx, :, :, :], (2, 0, 1)))
 				
-		return data, torch.tensor(y_task, dtype=torch.long).squeeze(), torch.tensor(y_domain, dtype=torch.long).squeeze()
+		return data, torch.tensor(y_task, dtype=torch.long).squeeze()
 
 	def __len__(self):
 		return self.length
 
-class Loader_unif_sampling(data.Dataset):
+class Loader_training(data.Dataset):
 	def __init__(self, hdf_path1, hdf_path2, hdf_path3, transform=None):
 		self.hdf_path_1 = hdf_path1
 		self.hdf_path_2 = hdf_path2
@@ -93,7 +109,7 @@ class Loader_unif_sampling(data.Dataset):
 			data_2 = torch.from_numpy(np.transpose(hdf_2['X'][idx_2, :, :, :], (2, 0, 1)))
 			data_3 = torch.from_numpy(np.transpose(hdf_3['X'][idx_3, :, :, :], (2, 0, 1)))
 				
-		return data_1, data_2, data_3, torch.tensor(y_task_1).long().squeeze(), torch.tensor(y_task_2).long().squeeze(), torch.tensor(y_task_3).long().squeeze(), torch.tensor(y_domain_1).long().squeeze(), torch.tensor(y_domain_2).long().squeeze(), torch.tensor(y_domain_3).long().squeeze()
+		return data_1, data_2, data_3, torch.tensor(y_task_1).long().squeeze(), torch.tensor(y_task_2).long().squeeze(), torch.tensor(y_task_3).long().squeeze()
 
 	def __len__(self):
 		return self.length
