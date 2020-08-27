@@ -1,183 +1,152 @@
+from __future__ import print_function
 import argparse
+import torch
+import torchvision
+from torch.utils.data import DataLoader
+from train_loop import TrainLoop
+import torch.optim as optim
+from torchvision import datasets, transforms
+from RandAugment import RandAugment
+from models import resnet
+from data_load import Loader, collater
+import numpy as np
+from time import sleep
 import os
 import sys
-import random
-from tqdm import tqdm
-
-import torch.optim as optim
-import torch.utils.data
-from torchvision import datasets
-from torchvision import transforms
-import PIL
-import pandas
-
-import models as models
-from train_loop import TrainLoop
-from data_loader import Loader_validation, Loader_unif_sampling
 from torch.utils.tensorboard import SummaryWriter
-import utils
+from utils import mean, std, set_np_randomseed, get_freer_gpu, parse_args_for_log, add_noise
 
-parser = argparse.ArgumentParser(description='Domain conditional models for domain generalization')
+# Training settings
+parser = argparse.ArgumentParser(description='PACS out of domain classification')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N', help='input batch size for training (default: 64)')
-parser.add_argument('--epochs', type=int, default=100, metavar='N', help='number of epochs to train (default: 50)')
-parser.add_argument('--lr', type=float, default=0.01, metavar='LR', help='learning rate (default: 0.0002)')
-parser.add_argument('--momentum', type=float, default=0.9, metavar='m', help='momentum (default: 0.9)')
-parser.add_argument('--l2', type=float, default=1e-5, metavar='L2', help='Weight decay coefficient (default: 0.00001')
-parser.add_argument('--lr-factor', type=float, default=0.1, metavar='f', help='LR decrease factor (default: 0.1')
-parser.add_argument('--lr-threshold', type=float, default=0.001, metavar='f', help='LR threshold (default: 0.001')
-parser.add_argument('--checkpoint-epoch', type=int, default=None, metavar='N', help='epoch to load for checkpointing. If None, training starts from scratch')
-parser.add_argument('--checkpoint-path', type=str, default='./', metavar='Path', help='Path for checkpointing')
-parser.add_argument('--pretrained-path', type=str, default='./alexnet_caffe.pth.tar', metavar='Path', help='Path for checkpointing')
-parser.add_argument('--data-path', type=str, default='./prepared_data/', metavar='Path', help='Data path')
-parser.add_argument('--source1', type=str, default='photo', metavar='Path', help='Path to source1 file')
-parser.add_argument('--source2', type=str, default='cartoon', metavar='Path', help='Path to source2 file')
-parser.add_argument('--source3', type=str, default='sketch', metavar='Path', help='Path to source3 file')
-parser.add_argument('--target', type=str, default='artpainting', metavar='Path', help='Path to target data')
-parser.add_argument('--n-classes', type=int, default=7, metavar='N', help='number of classes (default: 7)')
-parser.add_argument('--n-domains', type=int, default=3, metavar='N', help='number of available training domains (default: 3)')
-parser.add_argument('--seed', type=int, default=1, metavar='S', help='random seed (default: 1)')
-parser.add_argument('--patience', type=int, default=20, metavar='N', help='number of epochs to wait before reducing lr (default: 20)')
+parser.add_argument('--valid-batch-size', type=int, default=16, metavar='N', help='input batch size for testing (default: 256)')
+parser.add_argument('--epochs', type=int, default=500, metavar='N', help='number of epochs to train (default: 500)')
+parser.add_argument('--lr', type=float, default=0.001, metavar='LR', help='learning rate (default: 0.001)')
+parser.add_argument('--beta1', type=float, default=0.9, metavar='beta1', help='Beta1 (default: 0.9)')
+parser.add_argument('--beta2', type=float, default=0.999, metavar='beta2', help='Beta2 (default: 0.9)')
+parser.add_argument('--l2', type=float, default=1e-4, metavar='lambda', help='L2 wheight decay coefficient (default: 0.0005)')
 parser.add_argument('--smoothing', type=float, default=0.2, metavar='l', help='Label smoothing (default: 0.2)')
-parser.add_argument('--workers', type=int, help='number of data loading workers', default=4)
-parser.add_argument('--save-every', type=int, default=5, metavar='N', help='how many epochs to wait before logging training status. Default is 5')
+parser.add_argument('--centroid-smoothing', type=float, default=0.9, metavar='Lamb', help='Moving average parameter for centroids')
+parser.add_argument('--max-gnorm', type=float, default=10., metavar='clip', help='Max gradient norm (default: 10.0)')
+parser.add_argument('--checkpoint-epoch', type=int, default=None, metavar='N', help='epoch to load for checkpointing. If None, training starts from scratch')
+parser.add_argument('--checkpoint-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
+parser.add_argument('--data-path', type=str, default='./data_train', metavar='Path', help='Path to data')
+parser.add_argument('--hdf-path', type=str, default=None, metavar='Path', help='Path to data stored in hdf. Has priority over data path if set')
+parser.add_argument('--valid-data-path', type=str, default='./data_val', metavar='Path', help='Path to data')
+parser.add_argument('--valid-hdf-path', type=str, default=None, metavar='Path', help='Path to valid data stored in hdf. Has priority over valid data path if set')
+parser.add_argument('--seed', type=int, default=42, metavar='S', help='random seed (default: 42)')
+parser.add_argument('--n-workers', type=int, default=4, metavar='N', help='Workers for data loading. Default is 4')
+parser.add_argument('--model', choices=['resnet'], default='resnet')
+parser.add_argument('--softmax', choices=['softmax', 'am_softmax'], default='softmax', help='Softmax type')
+parser.add_argument('--aug-M', type=int, default=15, metavar='AUGM', help='Augmentation hp. Default is 15')
+parser.add_argument('--aug-N', type=int, default=1, metavar='AUGN', help='Augmentation hp. Default is 1')
+parser.add_argument('--pretrained', action='store_true', default=False, help='Get pretrained weights on imagenet. Encoder only')
+parser.add_argument('--pretrained-path', type=str, default=None, metavar='Path', help='Path to trained model. Discards output layer')
+parser.add_argument('--hidden-size', type=int, default=512, metavar='S', help='latent layer dimension (default: 512)')
+parser.add_argument('--n-hidden', type=int, default=1, metavar='N', help='maximum number of frames per utterance (default: 1)')
+parser.add_argument('--dropout-prob', type=float, default=0.25, metavar='p', help='Dropout probability (default: 0.25)')
+parser.add_argument('--save-every', type=int, default=1, metavar='N', help='how many epochs to wait before saving checkpoints. Default is 1')
+parser.add_argument('--eval-every', type=int, default=1000, metavar='N', help='how many iterations to wait before evaluatiing models. Default is 1000')
 parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
+parser.add_argument('--no-cp', action='store_true', default=False, help='Disables checkpointing')
+parser.add_argument('--verbose', type=int, default=1, metavar='N', help='Verbose is activated if > 0')
+parser.add_argument('--ablation-sim', action='store_true', default=False, help='Disables similarity learning')
+parser.add_argument('--ablation-ce', action='store_true', default=False, help='Disables auxiliary classification loss')
+parser.add_argument('--add-noise', action='store_true', default=False, help='Enales additive gaussian distortions and disables randaugment')
 parser.add_argument('--logdir', type=str, default=None, metavar='Path', help='Path for checkpointing')
-parser.add_argument('--n-runs', type=int, default=1, metavar='n', help='Number of repetitions (default: 3)')
-parser.add_argument('--out-file-name', type=str, default='out', metavar='out', help='Output file with all results')
-parser.add_argument('--no-combined-loss', action='store_true', default=False, help='Disables the loss over the combined simplex')
-parser.add_argument('--class-loss', action='store_true', default=False, help='Enables loss over class simplex')
-parser.add_argument('--domain-loss', action='store_true', default=False, help='Enables loss over domain simplex')
-
 args = parser.parse_args()
 args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
-args.combined_loss = True if not args.no_combined_loss else False
 
-assert args.combined_loss or args.class_loss or args.domain_loss, 'One of the losses has to be enabled!!!'
+if args.cuda:
+	torch.backends.cudnn.benchmark=True
+
+if args.hdf_path:
+	transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+	transform_train.transforms.append(add_noise()) if args.add_noise else transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
+	trainset = Loader(args.hdf_path, transform_train)
+	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True, collate_fn=collater)
+else:
+	transform_train = transforms.Compose([transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])	
+	transform_train.transforms.append(add_noise()) if args.add_noise else transform_train.transforms.insert(0, RandAugment(args.aug_N, args.aug_M))
+	trainset = datasets.ImageFolder(args.data_path, transform=transform_train)
+	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True)
+
+if args.valid_hdf_path:
+	transform_test = transforms.Compose([transforms.ToPILImage(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+	validset = Loader(args.valid_hdf_path, transform_test)
+	valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=True, num_workers=args.n_workers, pin_memory=True, collate_fn=collater)
+else:
+	transform_test = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+	validset = datasets.ImageFolder(args.valid_data_path, transform=transform_test)
+	valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=True, num_workers=args.n_workers, pin_memory=True)
+
+args.nclasses = trainset.n_classes if isinstance(trainset, Loader) else len(trainset.classes)
 
 print(args, '\n')
 
-print('Source domains: {}, {}, {}'.format(args.source1, args.source2, args.source3))
-print('Target domain:', args.target)
-print('Number of classes and domains: {}, {}'.format(args.n_classes, args.n_domains))
-print('Cuda Mode: {}'.format(args.cuda))
-print('Batch size: {}'.format(args.batch_size))
-print('LR: {}'.format(args.lr))
-print('L2: {}'.format(args.l2))
-print('Momentum: {}'.format(args.momentum))
-print('Patience: {}'.format(args.patience))
-print('Smoothing: {}'.format(args.smoothing))
-print('LR reduction factor: {}'.format(args.lr_factor))
-print('LR threshold: {}'.format(args.lr_threshold))
-print('Train mode (combined, class, and domains losses): {}, {}, {}'.format(args.combined_loss, args.class_loss, args.domain_loss))
+if args.pretrained_path:
+	print('\nLoading pretrained model from: {}\n'.format(args.pretrained_path))
+	ckpt=torch.load(args.pretrained_path, map_location = lambda storage, loc: storage)
+	args.dropout_prob, args.n_hidden, args.hidden_size = ckpt['dropout_prob'], ckpt['n_hidden'], ckpt['hidden_size']
+	print('\nUsing pretrained config for discriminator. Ignoring args.')
 
-acc_runs = []
-acc_blind_runs = []
-seeds = [1, 10, 100]
+if args.model == 'resnet':
+	model = resnet.ResNet50(nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing, n_classes=args.nclasses)
 
-assert args.n_runs<=len(seeds), "n-runs can be at most {}.".format(len(seeds))
+if args.pretrained_path:
+	if ckpt['sm_type'] == 'am_softmax' and ckpt['model_state']['out_proj.w'].size(1) != args.nclasses:
+		del(ckpt['model_state']['out_proj.w'])
+		print('\nRandomly initialized output layer will be used since the number of classes is different between train data and pretrained model\n')
+	elif ckpt['model_state']['out_proj.w.weight'].size(0) != args.nclasses:
+		del(ckpt['model_state']['out_proj.w.weight'])
+		del(ckpt['model_state']['out_proj.w.bias'])
+		print('\nRandomly initialized output layer will be used since the number of classes is different between train data and pretrained model\n')
 
-out_file_name = os.path.join(args.checkpoint_path, 'out_' + args.target + '.txt')
-
-for run in range(args.n_runs):
-	print('Run {}'.format(run))
-
-	# Setting seed
-	random.seed(seeds[run])
-	torch.manual_seed(seeds[run])
-	checkpoint_path = os.path.join(args.checkpoint_path, args.target+'_seed'+str(seeds[run]))
-	
-	if args.cuda:
-		torch.cuda.manual_seed(args.seed)
-
-	img_transform_train = transforms.Compose([transforms.RandomResizedCrop(225, scale=(0.7,1.0)), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
-	img_transform_test = transforms.Compose([transforms.Resize((225, 225)), transforms.ToTensor(), transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])])
-
-	train_source_1 = args.data_path + 'train_' + args.source1 + '.hdf'
-	train_source_2 = args.data_path + 'train_' + args.source2 + '.hdf'
-	train_source_3 = args.data_path + 'train_' + args.source3 + '.hdf'
-	test_source_1 = args.data_path + 'val_' + args.source1 + '.hdf'
-	test_source_2 = args.data_path + 'val_' + args.source2 + '.hdf'
-	test_source_3 = args.data_path + 'val_' + args.source3 + '.hdf'
-	target_path = args.data_path + 'test_' + args.target + '.hdf'
-
-	source_dataset = Loader_unif_sampling(hdf_path1=train_source_1, hdf_path2=train_source_2, hdf_path3=train_source_3, transform=img_transform_train)
-	source_loader = torch.utils.data.DataLoader(dataset=source_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
-
-	test_source_dataset = Loader_unif_sampling(hdf_path1=test_source_1, hdf_path2=test_source_2, hdf_path3=test_source_3, transform=img_transform_test)
-	test_source_loader = torch.utils.data.DataLoader(dataset=test_source_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
-
-	target_dataset = Loader_validation(hdf_path=target_path, transform=img_transform_test)
-	target_loader = torch.utils.data.DataLoader(dataset=target_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
-		
-	model = models.AlexNet(n_classes=args.n_classes, n_domains=args.n_domains, pretrained_path=args.pretrained_path)
-
-	optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay = args.l2)
-
-	if args.cuda:
-		model = model.cuda()
-		torch.backends.cudnn.benchmark = True
-
-	if args.logdir:
-		writer = SummaryWriter(log_dir=os.path.join(args.logdir,'run_{}'.format(run)), purge_step=True if args.checkpoint_epoch is None else False)
-		args_dict = utils.parse_args_for_log(args)
-		writer.add_hparams(hparam_dict=args_dict, metric_dict={'src_acc':0.0, 'tgt_acc':0.0, 'tgt_acc_1':0.0, 'tgt_acc_2':0.0})
+	print(model.load_state_dict(ckpt['model_state'], strict=False))
+	if args.nclasses == ckpt['centroids'].size(0):
+		model.centroids = ckpt['centroids']
 	else:
-		writer = None
+		print('\nRandomly initialized centroids will be used since the number of classes is different between train data and pretrained model\n')
+	print('\n')
 
-	trainer = TrainLoop(model=model,
-						optimizer=optimizer,
-						source_loader=source_loader,
-						test_source_loader=test_source_loader,
-						target_loader=target_loader,
-						patience=args.patience,
-						factor=args.lr_factor,
-						label_smoothing=args.smoothing,
-						lr_threshold=args.lr_threshold,
-						combined_loss=args.combined_loss,
-						class_loss=args.class_loss,
-						domain_loss=args.domain_loss,
-						checkpoint_path=checkpoint_path,
-						checkpoint_epoch=args.checkpoint_epoch,
-						cuda=args.cuda,
-						logger=writer )
+elif args.pretrained:
+	print('\nLoading pretrained encoder from torchvision\n')
+	if args.model == 'vgg':
+		model_pretrained = torchvision.models.VGG('VGG19', pretrained=True)
+	elif args.model == 'resnet':
+		model_pretrained = torchvision.models.resnet50(pretrained=True)
+	elif args.model == 'densenet':
+		model_pretrained = torchvision.models.densenet121(pretrained=True)
 
-	_, results_acc, results_epoch = trainer.train(n_epochs=args.epochs, save_every=args.save_every)
+	print(model.load_state_dict(model_pretrained.state_dict(), strict=False))
+	print('\n')
 
-	if args.logdir:
-		writer.add_hparams(hparam_dict=args_dict, metric_dict={'src_acc':results_acc[-2],
-																'tgt_acc':results_acc[-1],
-																'tgt_acc_1':results_acc[0],
-																'tgt_acc_2':results_acc[1]})
+if args.verbose >0:
+	print(model)
 
-	acc_runs.append(results_acc[-1])
-	acc_blind_runs.append(results_acc[-3])
+if args.cuda:
+	device = get_freer_gpu()
+	model = model.to(device)
 
-	# Logging results on text file
-	with open(out_file_name, 'w') as out_file:
-		out_file.write('Run {}\n'.format(run))
-		out_file.write('Source domains: {}, {}, {}'.format(args.source1, args.source2, args.source3))
-		out_file.write('Target domain {}:'.format(args.target))
-		out_file.write('Cuda Mode: {}'.format(args.cuda))
-		out_file.write('Batch size: {}'.format(args.batch_size))
-		out_file.write('LR: {}'.format(args.lr))
-		out_file.write('L2: {}'.format(args.l2))
-		out_file.write('Momentum: {}'.format(args.momentum))
-		out_file.write('Patience: {}'.format(args.patience))
-		out_file.write('Smoothing: {}'.format(args.smoothing))
-		out_file.write('LR factor: {}'.format(args.lr_factor))
-		out_file.write('LR threshold: {}'.format(args.lr_threshold))
-		out_file.write('Train mode (combined, class, and domains losses): {}, {}, {}'.format(args.combined_loss, args.class_loss, args.domain_loss))
+if args.logdir:
+	writer = SummaryWriter(log_dir=args.logdir, comment=args.model, purge_step=0 if args.checkpoint_epoch is None else int(args.checkpoint_epoch*len(train_loader)))
+	args_dict = parse_args_for_log(args)
+	writer.add_hparams(hparam_dict=args_dict, metric_dict={'best_eer':0.0})
+else:
+	writer = None
 
-		out_file.write('\nSources: {}, {}, {}'.format(args.source1, args.source2, args.source3))
-		out_file.write('\nTarget: {}'.format(args.target))
-		out_file.write('\nBest source acc: {:0.4f}, epoch: {}'.format(results_acc[-2], results_epoch[-2]))
-		out_file.write('\nBest target acc:{:0.4f}, epoch: {}'.format(results_acc[-1], results_epoch[-1]))
-		out_file.write('\nTarget acc when best source acc: {:0.4f}, epoch: {}'.format(results_acc[0], results_epoch[-2]))
-		out_file.write('\nTarget acc when best total loss: {:0.4f}, epoch: {}'.format(results_acc[1], results_epoch[0]))
+optimizer = optim.Adam(model.parameters(), lr=args.lr, betas=(args.beta1, args.beta2), weight_decay=args.l2)
 
+trainer = TrainLoop(model, optimizer, train_loader, valid_loader, max_gnorm=args.max_gnorm,
+		label_smoothing=args.smoothing, verbose=args.verbose, save_cp=(not args.no_cp), 
+		checkpoint_path=args.checkpoint_path, checkpoint_epoch=args.checkpoint_epoch, 
+		ablation_sim=args.ablation_sim, ablation_ce=args.ablation_ce, cuda=args.cuda, logger=writer)
 
-df = pandas.DataFrame(data={'Acc-{}'.format(args.target): acc_runs, 'Seed': seeds[:args.n_runs]})
-df.to_csv('./accuracy_runs_'+args.target+'.csv', sep=',', index = False)
+if args.verbose >0:
+	print('\n')
+	args_dict = dict(vars(args))
+	for arg_key in args_dict:
+		print('{}: {}'.format(arg_key, args_dict[arg_key]))
+	print('\n')
 
-df = pandas.DataFrame(data={'Acc-{}'.format(args.target): acc_blind_runs, 'Seed': seeds[:args.n_runs]})
-df.to_csv('./accuracy_runs_'+args.target+'_blind.csv', sep=',', index = False)
+trainer.train(n_epochs=args.epochs, save_every=args.save_every, eval_every=args.eval_every)
