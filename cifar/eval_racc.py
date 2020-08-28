@@ -108,7 +108,7 @@ if __name__ == '__main__':
 		]
 
 	print("\nAttacks:\n")
-	print(epsilons, '\n')
+	print(attacks, '\n')
 
 	print("\nEpsilons:\n")
 	print(epsilons, '\n')
