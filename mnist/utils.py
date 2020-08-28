@@ -21,7 +21,7 @@ class add_noise(object):
 			Tensor: Distorted image.
 		"""
 		if random.random()>0.5:
-			pic += torch.randn_like(pic)*random.choice([1e-1])
+			pic += torch.rand_like(pic)*random.choice([0.1, 0.2, 0.3])
 
 		return pic
 

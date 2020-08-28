@@ -59,7 +59,6 @@ parser.add_argument('--no-cuda', action='store_true', default=False, help='Disab
 parser.add_argument('--no-cp', action='store_true', default=False, help='Disables checkpointing')
 parser.add_argument('--ablation-sim', action='store_true', default=False, help='Disables similarity learning')
 parser.add_argument('--ablation-ce', action='store_true', default=False, help='Disables auxiliary classification loss')
-parser.add_argument('--add-noise', action='store_true', default=False, help='Enales additive gaussian distortions and disables randaugment')
 parser.add_argument('--adv-train', action='store_true', default=False, help='Enales adversarial training')
 parser.add_argument('--pretrained-path', type=str, default=None, metavar='Path', help='Path to trained model')
 parser.add_argument('--verbose', type=int, default=1, metavar='N', help='Verbose is activated if > 0')
@@ -69,7 +68,7 @@ args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 if args.cuda:
 	torch.backends.cudnn.benchmark=True
 
-transform_train = transforms.Compose([transforms.ToTensor(), add_noise]) if args.add_noise else transforms.ToTensor()
+transform_train = transforms.Compose([transforms.ToTensor(), add_noise()])
 trainset = datasets.MNIST(root=args.data_path, train=True, download=True, transform=transform_train)
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed)
 

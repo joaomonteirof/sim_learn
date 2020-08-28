@@ -52,7 +52,6 @@ parser.add_argument('--no-cp', action='store_true', default=False, help='Disable
 parser.add_argument('--verbose', type=int, default=1, metavar='N', help='Verbose is activated if > 0')
 parser.add_argument('--ablation-sim', action='store_true', default=False, help='Disables similarity learning')
 parser.add_argument('--ablation-ce', action='store_true', default=False, help='Disables auxiliary classification loss')
-parser.add_argument('--add-noise', action='store_true', default=False, help='Enales additive gaussian distortions and disables randaugment')
 parser.add_argument('--logdir', type=str, default=None, metavar='Path', help='Path for checkpointing')
 args = parser.parse_args()
 args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
@@ -61,13 +60,13 @@ if args.cuda:
 	torch.backends.cudnn.benchmark=True
 
 if args.hdf_path:
-	transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
-	transform_train.transforms.append(add_noise()) if args.add_noise else transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
+	transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])
+	transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
 	trainset = Loader(args.hdf_path, transform_train)
 	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True, collate_fn=collater)
 else:
-	transform_train = transforms.Compose([transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])	
-	transform_train.transforms.append(add_noise()) if args.add_noise else transform_train.transforms.insert(0, RandAugment(args.aug_N, args.aug_M))
+	transform_train = transforms.Compose([transforms.RandomResizedCrop(224), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])	
+	transform_train.transforms.insert(0, RandAugment(args.aug_N, args.aug_M))
 	trainset = datasets.ImageFolder(args.data_path, transform=transform_train)
 	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True)
 

@@ -12,7 +12,7 @@ import numpy as np
 from time import sleep
 import os
 import sys
-from utils import mean, std, set_np_randomseed, get_freer_gpu, parse_args_for_log
+from utils import mean, std, set_np_randomseed, get_freer_gpu, parse_args_for_log, add_noise
 
 # Training settings
 parser = argparse.ArgumentParser(description='Mini Imagenet')
@@ -54,12 +54,12 @@ if args.cuda:
 	torch.backends.cudnn.benchmark=True
 
 if args.hdf_path:
-	transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+	transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])
 	transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
 	trainset = Loader(args.hdf_path, transform_train)
 	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True, collate_fn=collater)
 else:
-	transform_train = transforms.Compose([transforms.RandomCrop(84, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+	transform_train = transforms.Compose([transforms.RandomCrop(84, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])
 	transform_train.transforms.insert(0, RandAugment(args.aug_N, args.aug_M))
 	trainset = datasets.ImageFolder(args.data_path, transform=transform_train)
 	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True)

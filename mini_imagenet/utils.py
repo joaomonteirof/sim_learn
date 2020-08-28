@@ -7,8 +7,28 @@ import os
 import sys
 import pickle
 from time import sleep
+import random
 
 mean, std = [0.4688, 0.4477, 0.4010], [0.2735, 0.2653, 0.2805]
+
+class add_noise(object):
+	"""add noise
+	"""
+
+	def __call__(self, pic):
+		"""
+		Args:
+			pic (Torch tensor of arbitrary shape): Image to be distorted.
+		Returns:
+			Tensor: Distorted image.
+		"""
+		if random.random()>0.5:
+			pic += torch.rand_like(pic)*random.choice([0.1, 0.2, 0.3])
+
+		return pic
+
+	def __repr__(self):
+		return self.__class__.__name__ + '()'
 
 def get_centroids(embeddings, targets, num_classes):
 
