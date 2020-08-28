@@ -26,6 +26,8 @@ class add_noise(object):
 		if random.random()>0.5:
 			pic += torch.rand_like(pic)*random.choice([0.1, 0.2, 0.3])
 
+		pic = torch.clamp(pic, min=0.0, max=1.0)
+
 		return pic
 
 	def __repr__(self):
