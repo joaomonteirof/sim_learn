@@ -11,9 +11,6 @@ from models.losses import LabelSmoothingLoss
 from models.wrapper_racc import wrapper
 from utils import compute_eer
 
-from advertorch.context import ctx_noparamgrad_and_eval
-from advertorch.attacks import LinfPGDAttack
-
 class TrainLoop(object):
 
 	def __init__(self, model, optimizer, train_loader, valid_loader, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True, adv_train=False):
@@ -56,6 +53,12 @@ class TrainLoop(object):
 
 		if checkpoint_epoch is not None:
 			self.load_checkpoint(self.save_epoch_fmt.format(checkpoint_epoch))
+
+		if self.adv_train:
+			from advertorch.context import ctx_noparamgrad_and_eval
+			from advertorch.attacks import LinfPGDAttack
+			self.attack = LinfPGDAttack
+			self.adv_ctx = ctx_noparamgrad_and_eval
 
 	def train(self, n_epochs=1, save_every=1):
 
@@ -162,9 +165,9 @@ class TrainLoop(object):
 
 		if self.adv_train and not self.ablation_ce:
 			target_model = wrapper(base_model=self.model, inf_mode='ce')
-			adversary = LinfPGDAttack(target_model, loss_fn=torch.nn.CrossEntropyLoss(reduction="sum"), eps=0.3, nb_iter=10, 
+			adversary = self.attack(target_model, loss_fn=torch.nn.CrossEntropyLoss(reduction="sum"), eps=0.3, nb_iter=10, 
 			eps_iter=0.03, rand_init=True, clip_min=0.0, clip_max=1.0, targeted=False)
-			with ctx_noparamgrad_and_eval(target_model):
+			with self.adv_ctx(target_model):
 				x_adv = adversary.perturb(x, y)
 			x, y = torch.cat([x, x_adv], 0), torch.cat([y, y], 0)
 
