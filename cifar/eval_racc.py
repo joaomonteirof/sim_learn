@@ -21,7 +21,8 @@ if __name__ == '__main__':
 	parser.add_argument('--inf-mode', choices=['sim', 'ce', 'fus'], default='sim', help='Inference mode')
 	parser.add_argument('--workers', type=int, default=4, metavar='N', help='Data load workers (default: 4)')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
-	parser.add_argument('--full-eval', action='store_true', default=False, help='Enables use of large list of epsilons per attack')
+	parser.add_argument('--full-eps', action='store_true', default=False, help='Enables use of large list of epsilons per attack')
+	parser.add_argument('--full-attack', action='store_true', default=False, help='Enables use of large list of attacks')
 	args = parser.parse_args()
 	args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 
@@ -67,15 +68,26 @@ if __name__ == '__main__':
 
 	fmodel = PyTorchModel(model, bounds=(0, 1), preprocessing=preprocessing, device=device)
 
-	attacks = [
-		fa.FGSM(),
-		fa.LinfBasicIterativeAttack(steps=7),
-		fa.LinfPGD(steps=7),
-		fa.LinfPGD(steps=20),
-		fa.L2CarliniWagnerAttack(binary_search_steps=30),
-	]
+	if args.full_attack:
 
-	if args.full_eval:
+		attacks = [
+			fa.FGSM(),
+			fa.LinfBasicIterativeAttack(steps=7),
+			fa.LinfPGD(steps=7),
+			fa.LinfPGD(steps=20),
+			fa.L2CarliniWagnerAttack(binary_search_steps=30),
+		]
+
+	else:
+
+		attacks = [
+			fa.FGSM(),
+			fa.LinfBasicIterativeAttack(steps=7),
+			fa.LinfPGD(steps=7),
+			fa.LinfPGD(steps=20),
+		]
+
+	if args.full_eps:
 
 		epsilons = [
 			0.0,
@@ -95,7 +107,10 @@ if __name__ == '__main__':
 			16.0/255.0,
 		]
 
-	print("\nepsilons\n")
+	print("\nAttacks:\n")
+	print(epsilons, '\n')
+
+	print("\nEpsilons:\n")
 	print(epsilons, '\n')
 
 	# Computing robust accuracy for each attack
