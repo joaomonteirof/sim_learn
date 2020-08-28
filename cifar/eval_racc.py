@@ -21,6 +21,7 @@ if __name__ == '__main__':
 	parser.add_argument('--inf-mode', choices=['sim', 'ce', 'fus'], default='sim', help='Inference mode')
 	parser.add_argument('--workers', type=int, default=4, metavar='N', help='Data load workers (default: 4)')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
+	parser.add_argument('--full-eval', action='store_true', default=False, help='Enables use of large list of epsilons per attack')
 	args = parser.parse_args()
 	args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 
@@ -74,15 +75,25 @@ if __name__ == '__main__':
 		fa.L2CarliniWagnerAttack(binary_search_steps=30),
 	]
 
-	epsilons = [
-		0.0,
-		8.0/255.0,
-		16.0/255.0,
-		32.0/255.0,
-		48.0/255.0,
-		80.0/255.0,
-		128.0/255.0,
-	]
+	if args.full_eval:
+
+		epsilons = [
+			0.0,
+			8.0/255.0,
+			16.0/255.0,
+			32.0/255.0,
+			48.0/255.0,
+			80.0/255.0,
+			128.0/255.0,
+		]
+
+	else:
+
+		epsilons = [
+			0.0,
+			8.0/255.0,
+			16.0/255.0,
+		]
 
 	print("\nepsilons\n")
 	print(epsilons, '\n')
