@@ -68,7 +68,7 @@ target_path = args.data_path + 'test_' + args.target + '.hdf'
 
 transform_train = transforms.Compose([transforms.RandomGrayscale(p=0.10), transforms.RandomResizedCrop(222, scale=(0.8,1.0)), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])	
 transform_train.transforms.insert(0, RandAugment(args.aug_N, args.aug_M))
-trainset = Loader_training(hdf_path1=train_source_1, hdf_path2=train_source_2, hdf_path3=train_source_3, transform=img_transform_train)
+trainset = Loader_training(hdf_path1=train_source_1, hdf_path2=train_source_2, hdf_path3=train_source_3, transform=transform_train)
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True, collate_fn=collater)
 
 transform_test = transforms.Compose([transforms.Resize(size=222), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
