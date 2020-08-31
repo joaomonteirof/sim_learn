@@ -102,7 +102,6 @@ if args.pretrained_path:
 	elif ckpt['model_state']['out_proj.w.weight'].size(0) != args.nclasses:
 		del(ckpt['model_state']['out_proj.w.weight'])
 		del(ckpt['model_state']['out_proj.w.bias'])
-		print('\nRandomly initialized output layer will be used since the number of classes is different between train data and pretrained model\n')
 
 	print(model.load_state_dict(ckpt['model_state'], strict=False))
 	print('\n')

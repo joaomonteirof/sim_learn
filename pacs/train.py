@@ -87,8 +87,12 @@ if args.model == 'resnet':
 	model = resnet.ResNet50(nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing)
 
 if args.pretrained_path:
+	if ckpt['sm_type'] == 'am_softmax':
+		del(ckpt['model_state']['out_proj.w'])
+	else:
+		del(ckpt['model_state']['out_proj.w.weight'])
+		del(ckpt['model_state']['out_proj.w.bias'])
 	print(model.load_state_dict(ckpt['model_state'], strict=False))
-	model.centroids = ckpt['centroids']
 	print('\n')
 elif args.pretrained:
 	print('\nLoading pretrained encoder from torchvision\n')
