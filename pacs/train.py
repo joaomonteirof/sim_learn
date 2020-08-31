@@ -57,7 +57,7 @@ args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 if args.cuda:
 	torch.backends.cudnn.benchmark=True
 
-source_domains = [x for x in ['photo', 'cartoon', 'sketch', 'art_painting'] if x != args.target]
+source_domains = [x for x in ['photo', 'cartoon', 'sketch', 'artpainting'] if x != args.target]
 
 print('\nSource domains: {}\n'.format(source_domains))
 
