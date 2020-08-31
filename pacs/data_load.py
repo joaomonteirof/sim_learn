@@ -71,6 +71,8 @@ class Loader_training(data.Dataset):
 		
 		self.transform = transform
 
+		self.update_lists()
+
 		hdf_1.close()
 		hdf_2.close()
 		hdf_3.close()
