@@ -9,6 +9,7 @@ from tqdm import tqdm
 from harvester import AllTripletSelector
 from models.losses import LabelSmoothingLoss
 from utils import compute_eer
+from data_load import Loader
 
 class TrainLoop(object):
 
@@ -58,6 +59,9 @@ class TrainLoop(object):
 		while (self.cur_epoch < n_epochs):
 
 			np.random.seed()
+			if isinstance(self.train_loader.dataset, Loader):
+				self.train_loader.dataset.update_lists()
+
 			if self.verbose>0:
 				print(' ')
 				print('Epoch {}/{}'.format(self.cur_epoch+1, n_epochs))

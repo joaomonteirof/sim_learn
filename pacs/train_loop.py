@@ -10,7 +10,6 @@ from tqdm import tqdm
 from harvester import AllTripletSelector
 from models.losses import LabelSmoothingLoss
 from utils import compute_eer, correct_topk
-from data_load import Loader
 
 class TrainLoop(object):
 	def __init__(self, model, optimizer, train_loader, valid_loader, max_gnorm, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True, logger=None):

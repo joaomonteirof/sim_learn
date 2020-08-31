@@ -66,6 +66,8 @@ class TrainLoop(object):
 
 			self.cur_epoch += 1
 			np.random.seed()
+			if isinstance(self.train_loader.dataset, Loader):
+				self.train_loader.dataset.update_lists()
 
 			if self.logger:
 				self.logger.add_scalar('Info/Epoch', self.cur_epoch, self.total_iters)
