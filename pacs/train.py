@@ -31,7 +31,7 @@ parser.add_argument('--max-gnorm', type=float, default=10., metavar='clip', help
 parser.add_argument('--checkpoint-epoch', type=int, default=None, metavar='N', help='epoch to load for checkpointing. If None, training starts from scratch')
 parser.add_argument('--checkpoint-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
 parser.add_argument('--data-path', type=str, default='./data_train', metavar='Path', help='Path to data')
-parser.add_argument('--target', choices=['photo', 'cartoon', 'sketch', 'art_painting'], default='art_painting', help='Choice of left out (target) domain')
+parser.add_argument('--target', choices=['photo', 'cartoon', 'sketch', 'artpainting'], default='artpainting', help='Choice of left out (target) domain')
 parser.add_argument('--seed', type=int, default=42, metavar='S', help='random seed (default: 42)')
 parser.add_argument('--n-workers', type=int, default=4, metavar='N', help='Workers for data loading. Default is 4')
 parser.add_argument('--model', choices=['resnet'], default='resnet')
