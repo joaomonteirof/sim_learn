@@ -6,7 +6,7 @@ from train_loop import TrainLoop
 import torch.optim as optim
 from torchvision import datasets, transforms
 from RandAugment import RandAugment
-from models import resnet, wideresnet
+from models import cnn
 import numpy as np
 from time import sleep
 import os
