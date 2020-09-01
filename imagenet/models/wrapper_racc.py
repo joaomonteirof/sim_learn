@@ -17,7 +17,7 @@ class wrapper(nn.Module):
 			logits = self.base_model.compute_logits(embeddings)
 		elif self.inf_mode=='ce':
 			logits = self.base_model.out_proj(embeddings)
-		if self.inf_mode=='fus':
+		elif self.inf_mode=='fus':
 			logits_sim = self.base_model.compute_logits(embeddings)
 			logits_ce = self.base_model.out_proj(embeddings)
 			logits = (logits_sim+logits_ce)*0.5
