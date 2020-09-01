@@ -80,12 +80,12 @@ if __name__ == '__main__':
 			pred_mix = 0.5*pred_ce+0.5*pred_sim
 			(correct_mix_1_, correct_mix_3_) = correct_topk(pred_mix, y, (1,3))
 
-			correct_ce_1 += correct_ce_1_
-			correct_ce_3 += correct_ce_3_
-			correct_sim_1 += correct_sim_1_
-			correct_sim_3 += correct_sim_3_
-			correct_mix_1 += correct_mix_1_
-			correct_mix_3 += correct_mix_3_
+			correct_ce_1 += correct_ce_1_.item()
+			correct_ce_3 += correct_ce_3_.item()
+			correct_sim_1 += correct_sim_1_.item()
+			correct_sim_3 += correct_sim_3_.item()
+			correct_mix_1 += correct_mix_1_.item()
+			correct_mix_3 += correct_mix_3_.item()
 
 	print('\nCE Top 1 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct_ce_1/len(testset)))
 	print('\nCE Top 3 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct_ce_3/len(testset)))
