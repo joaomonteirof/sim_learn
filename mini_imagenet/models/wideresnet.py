@@ -50,7 +50,7 @@ class WideBasic(nn.Module):
 
 
 class WideResNet(nn.Module):
-	def __init__(self, depth=28, widen_factor=10, dropout_rate=0.3, num_classes=10, nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', centroids_lambda=0.9):
+	def __init__(self, depth=28, widen_factor=10, dropout_rate=0.3, n_classes=10, nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', centroids_lambda=0.9):
 		super(WideResNet, self).__init__()
 
 		self.dropout_prob = dropout_prob
@@ -67,7 +67,7 @@ class WideResNet(nn.Module):
 
 		nStages = [16, 16*k, 32*k, 64*k]
 
-		self.centroids = torch.rand(num_classes, nStages[3])
+		self.centroids = torch.rand(n_classes, nStages[3])
 		self.centroids.requires_grad = False
 
 		self.conv1 = conv3x3(3, nStages[0])
@@ -77,9 +77,9 @@ class WideResNet(nn.Module):
 		self.bn1 = nn.BatchNorm2d(nStages[3], momentum=_bn_momentum)
 
 		if sm_type=='softmax':
-			self.out_proj=Softmax(input_features=nStages[3], output_features=num_classes)
+			self.out_proj=Softmax(input_features=nStages[3], output_features=n_classes)
 		elif sm_type=='am_softmax':
-			self.out_proj=AMSoftmax(input_features=nStages[3], output_features=num_classes)
+			self.out_proj=AMSoftmax(input_features=nStages[3], output_features=n_classes)
 		else:
 			raise NotImplementedError
 
