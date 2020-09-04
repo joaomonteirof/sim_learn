@@ -57,6 +57,7 @@ class WideResNet(nn.Module):
 		self.n_hidden = nh
 		self.hidden_size = n_h
 		self.sm_type = sm_type
+		self.n_classes = num_classes
 		self.centroids_lambda = centroids_lambda
 
 		self.in_planes = 16
