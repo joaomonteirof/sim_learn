@@ -7,7 +7,7 @@ import torch.optim as optim
 from data_load import Loader, collater
 from torchvision import datasets, transforms
 from RandAugment import RandAugment
-from models import resnet, resnet12
+from models import resnet, resnet12, wideresnet
 import numpy as np
 from time import sleep
 import os
@@ -16,7 +16,7 @@ from utils import mean, std, set_np_randomseed, get_freer_gpu, parse_args_for_lo
 
 # Training settings
 parser = argparse.ArgumentParser(description='Mini Imagenet')
-parser.add_argument('--model', choices=['resnet', 'resnet_12'], default='resnet')
+parser.add_argument('--model', choices=['resnet', 'resnet_12', 'wideresnet'], default='resnet')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N', help='input batch size for training (default: 64)')
 parser.add_argument('--valid-batch-size', type=int, default=16, metavar='N', help='input batch size for testing (default: 256)')
 parser.add_argument('--epochs', type=int, default=500, metavar='N', help='number of epochs to train (default: 500)')
@@ -80,6 +80,8 @@ if args.model == 'resnet':
 	model = resnet.ResNet18(nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing, n_classes=args.nclasses)
 elif args.model == 'resnet_12':
 	model = resnet12.ResNet12(nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing, n_classes=args.nclasses)
+elif args.model == 'wideresnet':
+	model = wideresnet.WideResNet(nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing, n_classes=args.nclasses)
 
 if args.verbose >0:
 	print('\n', model, '\n')

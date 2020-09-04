@@ -4,7 +4,7 @@ import torch
 from train_loop import TrainLoop
 import torch.optim as optim
 from torchvision import datasets, transforms
-from models import resnet, resnet12
+from models import resnet, resnet12, wideresnet
 import numpy as np
 import os
 import sys
@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
 
 	parser = argparse.ArgumentParser(description='Mini-Imagenet EER evaluation')
-	parser.add_argument('--model', choices=['resnet', 'resnet_12'], default='resnet')
+	parser.add_argument('--model', choices=['resnet', 'resnet_12', 'wideresnet'], default='resnet')
 	parser.add_argument('--cp-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
 	parser.add_argument('--data-path', type=str, default='./data/', metavar='Path', help='Path to data')
 	parser.add_argument('--out-path', type=str, default=None, metavar='Path', help='Path for saving computed scores')
@@ -34,6 +34,8 @@ if __name__ == '__main__':
 		model = resnet.ResNet50(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax)
 	elif args.model == 'resnet_12':
 		model = resnet12.ResNet12(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax)
+	elif args.model == 'wideresnet':
+		model = wideresnet.WideResNet(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax)
 	
 	print(model.load_state_dict(ckpt['model_state'], strict=False))
 
