@@ -9,7 +9,7 @@ import pickle
 from time import sleep
 import random
 
-mean, std = [0.4688, 0.4477, 0.4010], [0.2735, 0.2653, 0.2805]
+mean, std = [x/255.0 for x in [120.39586422,  115.59361427, 104.54012653]], [x/255.0 for x in [70.68188272,  68.27635443,  72.54505529]]
 
 class add_noise(object):
 	"""add noise
