@@ -134,7 +134,7 @@ class WideResNet(nn.Module):
 
 		self.centroids =  self.centroids.to(embeddings.device)
 
-		new_centroids, mask = get_centroids(embeddings, targets, 10)
+		new_centroids, mask = get_centroids(embeddings, targets, self.n_classes)
 
 		with torch.no_grad():
 			mask *= 1.-self.centroids_lambda
