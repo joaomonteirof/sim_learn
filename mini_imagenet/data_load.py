@@ -83,6 +83,80 @@ class Loader(Dataset):
 					self.example_list[-1].append(clss)
 					self.example_list[-1].append(self.clss2label[clss])
 
+class Loader_list(Dataset):
+
+	def __init__(self, hdf5_name, file_list, transformation):
+		super(Loader_list, self).__init__()
+		self.hdf5_name = hdf5_name
+		self.transformation = transformation
+		self.example_list = file_list
+		self.open_file = None
+
+	def __getitem__(self, index):
+
+		example, clss, y = self.example_list[index]
+
+		if not self.open_file: self.open_file = h5py.File(self.hdf5_name, 'r')
+
+		example_data = self.transformation( torch.from_numpy(self.open_file[clss][example][:,...]) )
+
+		return example_data.contiguous(), y
+
+	def __len__(self):
+		return len(self.example_list)
+
+class fewshot_eval_builder(Object):
+
+	def __init__(self, hdf5_name, train_transformation, test_transformation, k_shot=5, n_way=5, n_queries=15):
+		super(fewshot_eval_builder, self).__init__()
+		self.hdf5_name = hdf5_name
+		self.train_transformation = train_transformation
+		self.test_transformation = test_transformation
+		self.k_shot = k_shot
+		self.n_way = n_way
+		self.n_queries = n_queries
+
+		self.create_lists()
+
+		def get_task_loaders():
+
+			task_classes = random.sample(self.class_list, self.n_way)
+
+			train_list, test_list = [], []
+
+			for i, clss in enumerate(task_classes):
+				ex_list = random.sample(self.class2file, self.k_shot+self.n_queries)
+
+				sub_train_list = ex_list[:self.k_shot]
+				sub_test_list = ex_list[self.k_shot:]
+
+				for train_ex in sub_train_list:
+					train_list.append([train_ex, clss, torch.LongTensor([i])])
+
+				for test_ex in sub_test_list:
+					test_list.append([test_ex, clss, torch.LongTensor([i])])
+
+			train_loader = Loader_list(hdf5_name=self.hdf5_name, file_list=train_list, transformation=self.train_transformation)
+			test_loader = Loader_list(hdf5_name=self.hdf5_name, file_list=test_list, transformation=self.test_transformation)
+
+			return train_loader, test_loader
+
+		def create_lists(self):
+
+			open_file = h5py.File(self.hdf5_name, 'r')
+
+			self.class2file = {}
+			self.class_list = []
+
+			for i, clss in enumerate(open_file):
+				self.class_list.append(clss)
+				clss_example_list = list(open_file[clss])
+				self.class2file[clss] = clss_example_list
+
+			open_file.close()
+
+			self.n_classes = len(self.class2file)
+
 if __name__=='__main__':
 
 	import torch.utils.data
