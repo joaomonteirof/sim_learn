@@ -35,12 +35,14 @@ if __name__ == '__main__':
 
 	transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=8), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])
 	transform_test = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
-	task_builder = fewshot_eval_builder(hdf5_name=args.data_path, train_transformation=train_transformation, test_transformation=test_transformation, k_shot=args.num_shots, n_way=args.num_ways, n_queries=args.num_queries)
+	task_builder = fewshot_eval_builder(hdf5_name=args.data_path, train_transformation=transform_train, test_transformation=transform_test, k_shot=args.num_shots, n_way=args.num_ways, n_queries=args.num_queries)
 
 
 	ckpt = torch.load(args.cp_path, map_location = lambda storage, loc: storage)
 	dropout_prob, n_hidden, hidden_size, softmax = ckpt['dropout_prob'], ckpt['n_hidden'], ckpt['hidden_size'], ckpt['sm_type']
 	emb_size = ckpt['centroids'].size(1)
+
+	print('\n', args, '\n')
 
 	if args.model == 'resnet':
 		model = resnet.ResNet18(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing)
@@ -66,13 +68,13 @@ if __name__ == '__main__':
 
 			model.centroids = torch.rand(args.num_ways, emb_size).to(device)
 			
-			train_dataset, test_dataset = fewshot_eval_builder.get_task_loaders()
+			train_dataset, test_dataset = task_builder.get_task_loaders()
 
 			### Use the train split to compute the centroids
 
 			dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
 
-			for epoch in args.epochs:
+			for epoch in range(args.epochs):
 				for batch in dataloader:
 
 					x, y = batch
@@ -82,7 +84,7 @@ if __name__ == '__main__':
 
 					embeddings = model.forward(x)
 
-					self.model.update_centroids(embeddings, y)
+					model.update_centroids(embeddings, y)
 
 			### Eval on test split
 

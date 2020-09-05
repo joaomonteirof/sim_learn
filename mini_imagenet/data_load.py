@@ -7,6 +7,7 @@ import os
 import subprocess
 import shlex
 from utils import strided_app
+import random
 
 def collater(batch):
 
@@ -105,7 +106,7 @@ class Loader_list(Dataset):
 	def __len__(self):
 		return len(self.example_list)
 
-class fewshot_eval_builder(Object):
+class fewshot_eval_builder(object):
 
 	def __init__(self, hdf5_name, train_transformation, test_transformation, k_shot=5, n_way=5, n_queries=15):
 		super(fewshot_eval_builder, self).__init__()
@@ -118,44 +119,44 @@ class fewshot_eval_builder(Object):
 
 		self.create_lists()
 
-		def get_task_loaders():
+	def get_task_loaders(self):
 
-			task_classes = random.sample(self.class_list, self.n_way)
+		task_classes = random.sample(self.class_list, self.n_way)
 
-			train_list, test_list = [], []
+		train_list, test_list = [], []
 
-			for i, clss in enumerate(task_classes):
-				ex_list = random.sample(self.class2file, self.k_shot+self.n_queries)
+		for i, clss in enumerate(task_classes):
+			ex_list = random.sample(self.class2file[clss], self.k_shot+self.n_queries)
 
-				sub_train_list = ex_list[:self.k_shot]
-				sub_test_list = ex_list[self.k_shot:]
+			sub_train_list = ex_list[:self.k_shot]
+			sub_test_list = ex_list[self.k_shot:]
 
-				for train_ex in sub_train_list:
-					train_list.append([train_ex, clss, torch.LongTensor([i])])
+			for train_ex in sub_train_list:
+				train_list.append([train_ex, clss, torch.LongTensor([i])])
 
-				for test_ex in sub_test_list:
-					test_list.append([test_ex, clss, torch.LongTensor([i])])
+			for test_ex in sub_test_list:
+				test_list.append([test_ex, clss, torch.LongTensor([i])])
 
-			train_loader = Loader_list(hdf5_name=self.hdf5_name, file_list=train_list, transformation=self.train_transformation)
-			test_loader = Loader_list(hdf5_name=self.hdf5_name, file_list=test_list, transformation=self.test_transformation)
+		train_loader = Loader_list(hdf5_name=self.hdf5_name, file_list=train_list, transformation=self.train_transformation)
+		test_loader = Loader_list(hdf5_name=self.hdf5_name, file_list=test_list, transformation=self.test_transformation)
 
-			return train_loader, test_loader
+		return train_loader, test_loader
 
-		def create_lists(self):
+	def create_lists(self):
 
-			open_file = h5py.File(self.hdf5_name, 'r')
+		open_file = h5py.File(self.hdf5_name, 'r')
 
-			self.class2file = {}
-			self.class_list = []
+		self.class2file = {}
+		self.class_list = []
 
-			for i, clss in enumerate(open_file):
-				self.class_list.append(clss)
-				clss_example_list = list(open_file[clss])
-				self.class2file[clss] = clss_example_list
+		for i, clss in enumerate(open_file):
+			self.class_list.append(clss)
+			clss_example_list = list(open_file[clss])
+			self.class2file[clss] = clss_example_list
 
-			open_file.close()
+		open_file.close()
 
-			self.n_classes = len(self.class2file)
+		self.n_classes = len(self.class2file)
 
 if __name__=='__main__':
 
