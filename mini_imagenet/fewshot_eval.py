@@ -27,7 +27,6 @@ if __name__ == '__main__':
 	parser.add_argument('--num-runs', type=int, default=600, help='Number of evaluation runs (default: 600)')
 	parser.add_argument('--epochs', type=int, default=500, metavar='N', help='number of epochs to adapt centroids (default: 500)')
 	parser.add_argument('--batch-size', type=int, default=24, metavar='N', help='batch size(default: 24)')
-	parser.add_argument('--out-path', type=str, default=None, metavar='Path', help='Path for saving computed scores')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
 	parser.add_argument('--workers', type=int, default=4, metavar='N', help='Data load workers (default: 4)')
 	args = parser.parse_args()
