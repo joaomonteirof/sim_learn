@@ -3,7 +3,6 @@ import argparse
 import torch
 import torchvision
 import torchvision.transforms as transforms
-import torch.optim as optim
 import torch.utils.data
 from models import vgg, resnet, densenet
 

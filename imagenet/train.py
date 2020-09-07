@@ -115,12 +115,21 @@ elif args.pretrained:
 	print('\nLoading pretrained encoder from torchvision\n')
 	if args.model == 'vgg':
 		model_pretrained = torchvision.models.VGG('VGG19', pretrained=True)
+		pretrained_state_dict = model_pretrained.state_dict()
+		pretrained_state_dict['out_proj.w.weight'] = model_pretrained.state_dict()['classifier.6.weight']
+		pretrained_state_dict['out_proj.w.bias'] = model_pretrained.state_dict()['classifier.6.bias']
 	elif args.model == 'resnet':
 		model_pretrained = torchvision.models.resnet50(pretrained=True)
+		pretrained_state_dict = model_pretrained.state_dict()
+		pretrained_state_dict['out_proj.w.weight'] = model_pretrained.state_dict()['fc.weight']
+		pretrained_state_dict['out_proj.w.bias'] = model_pretrained.state_dict()['fc.bias']
 	elif args.model == 'densenet':
 		model_pretrained = torchvision.models.densenet121(pretrained=True)
+		pretrained_state_dict = model_pretrained.state_dict()
+		pretrained_state_dict['out_proj.w.weight'] = model_pretrained.state_dict()['classifier.weight']
+		pretrained_state_dict['out_proj.w.bias'] = model_pretrained.state_dict()['classifier.bias']
 
-	print(model.load_state_dict(model_pretrained.state_dict(), strict=False))
+	print(model.load_state_dict(pretrained_state_dict, strict=False))
 	print('\n')
 
 if args.verbose >0:
