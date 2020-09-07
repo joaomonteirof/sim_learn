@@ -44,11 +44,11 @@ if __name__ == '__main__':
 	print('\n', args, '\n')
 
 	if args.model == 'resnet':
-		model = resnet.ResNet18(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing)
+		model = resnet.ResNet18(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing, n_classes=args.num_ways)
 	elif args.model == 'resnet_12':
-		model = resnet12.ResNet12(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing)
+		model = resnet12.ResNet12(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing, n_classes=args.num_ways)
 	elif args.model == 'wideresnet':
-		model = wideresnet.WideResNet(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing)
+		model = wideresnet.WideResNet(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing, n_classes=args.num_ways)
 	
 	print(model.load_state_dict(ckpt['model_state'], strict=False))
 
