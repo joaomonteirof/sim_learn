@@ -224,9 +224,9 @@ class TrainLoop(object):
 			if label in sorted_e2e_classes[:3]:
 				r_at_3_e2e+=1
 
-			r_at_3_e2e/=len(labels)
+		r_at_3_e2e/=len(labels)
 
-			return r_at_3_e2e
+		return r_at_3_e2e
 
 
 
