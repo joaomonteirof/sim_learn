@@ -125,7 +125,7 @@ class TrainLoop(object):
 			if self.verbose>0:
 				print('Best e2e eer and corresponding epoch: {:0.4f}, {}'.format(np.min(self.history['acc']), 1+np.argmin(self.history['acc'])))
 
-			return [np.min(self.history['acc'])]
+			return [np.max(self.history['acc'])]
 		else:
 			return [np.min(self.history['train_loss'])]
 

@@ -126,7 +126,7 @@ class TrainLoop(object):
 			print('Training done!')
 
 		if self.valid_loader is not None:
-			return [self.history['r@3']]
+			return [np.max(self.history['r@3'])]
 		else:
 			return [np.min(self.history['train_loss'])]
 
