@@ -80,7 +80,7 @@ else:
 
 transform_train_eval = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=8), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])
 transform_test = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
-task_builder = fewshot_eval_builder(hdf5_name=args.valid_hdf_path, train_transformation=transform_train_eval, test_transformation=transform_test, k_shot=args.num_shots, n_way=args.num_ways, n_queries=args.num_queries)
+valid_loader = fewshot_eval_builder(hdf5_name=args.valid_hdf_path, train_transformation=transform_train_eval, test_transformation=transform_test, k_shot=args.num_shots, n_way=args.num_ways, n_queries=args.num_queries)
 
 args.nclasses = trainset.n_classes if isinstance(trainset, Loader) else len(trainset.classes)
 
