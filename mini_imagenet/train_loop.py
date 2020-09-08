@@ -199,8 +199,8 @@ class TrainLoop(object):
 						x = x.to(self.device)
 						y = y.to(self.device).squeeze()
 
-						embeddings = model.forward(x)
-						centroids = model.update_centroids_eval(centroids, embeddings, y, update_lambda=self.eval_config['centroid_smoothing'])
+						embeddings = self.model.forward(x)
+						centroids = self.model.update_centroids_eval(centroids, embeddings, y, update_lambda=self.eval_config['centroid_smoothing'])
 
 				### Eval on test split
 
@@ -215,8 +215,8 @@ class TrainLoop(object):
 					x = x.to(self.device)
 					y = y.to(self.device).squeeze()
 
-					embeddings = model.forward(x)
-					out = model.compute_logits_eval(centroids, embeddings)
+					embeddings = self.model.forward(x)
+					out = self.model.compute_logits_eval(centroids, embeddings)
 					pred = out.max(1)[1].long()
 					correct += pred.squeeze().eq(y).sum().item()
 
