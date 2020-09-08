@@ -188,9 +188,7 @@ class TrainLoop(object):
 			for batch in self.valid_loader:
 
 				x, y = batch
-
-				if args.cuda:
-					x = x.to(self.device)
+				x = x.to(self.device)
 
 				emb = self.model.forward(x).detach().cpu()
 
@@ -219,7 +217,7 @@ class TrainLoop(object):
 
 					e2e_scores[j+l] = dist_e2e[l].item()
 
-			_, topk_e2e_idx = torch.topk(torch.Tensor(e2e_scores), max(args.k_list)+1)
+			_, topk_e2e_idx = torch.topk(torch.Tensor(e2e_scores), 3+1) ## k+1
 
 			sorted_e2e_classes = labels[topk_e2e_idx]
 
