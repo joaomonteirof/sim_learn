@@ -99,7 +99,7 @@ if __name__ == '__main__':
 				if args.cuda:
 					x = x.to(device)
 
-				emb = model.forward(x)[0].detach()
+				emb = model.forward(x).detach()
 
 				embeddings.append(emb.detach().cpu())
 				labels.append(y)
@@ -141,7 +141,7 @@ if __name__ == '__main__':
 			class_scores_cos = []
 			emb = embeddings[i].unsqueeze(0).to(device)
 			for k in class_center:
-				class_scores_e2e.append( [model.forward_bin(torch.cat([class_center[k], emb],1)).squeeze().item(), k] )
+				class_scores_e2e.append( [model.forward_bin(class_center[k], emb).squeeze().item(), k] )
 				class_scores_cos.append( [torch.nn.functional.cosine_similarity(class_center[k], emb).squeeze().item(), k] )
 
 			pred_list_e2e.append(max(class_scores_e2e)[1])
