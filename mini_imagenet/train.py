@@ -58,7 +58,7 @@ args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 
 eval_config={'num_shots':args.num_shots, 
 'num_ways':args.num_ways, 
-'num_runs':arg.num_runs, 
+'num_runs':args.num_runs, 
 'epochs':args.valid_epochs, 
 'batch_size':args.valid_batch_size, 
 'workers':args.eval_workers, 
