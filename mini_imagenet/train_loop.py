@@ -189,7 +189,7 @@ class TrainLoop(object):
 
 				### Use the train split to compute the centroids
 
-				dataloader = DataLoader(train_dataset, batch_size=eval_config['batch_size'], shuffle=True, num_workers=self.eval_config['workers'])
+				dataloader = DataLoader(train_dataset, batch_size=self.eval_config['batch_size'], shuffle=True, num_workers=self.eval_config['workers'])
 
 				for epoch in range(self.eval_config['epochs']):
 					for batch in dataloader:
@@ -206,7 +206,7 @@ class TrainLoop(object):
 
 				correct = 0
 
-				dataloader = DataLoader(test_dataset, batch_size=eval_config['batch_size'], shuffle=False, num_workers=self.eval_config['workers'])
+				dataloader = DataLoader(test_dataset, batch_size=self.eval_config['batch_size'], shuffle=False, num_workers=self.eval_config['workers'])
 
 				for batch in dataloader:
 
