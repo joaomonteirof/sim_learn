@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import DataLoader
 from train_loop import TrainLoop
 import torch.optim as optim
-from data_load import Loader, collater
+from data_load import Loader, collater, fewshot_eval_builder
 from torchvision import datasets, transforms
 from RandAugment import RandAugment
 from models import resnet, resnet12, wideresnet
@@ -18,11 +18,9 @@ from utils import mean, std, set_np_randomseed, get_freer_gpu, parse_args_for_lo
 parser = argparse.ArgumentParser(description='Mini Imagenet')
 parser.add_argument('--model', choices=['resnet', 'resnet_12', 'wideresnet'], default='resnet')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N', help='input batch size for training (default: 64)')
-parser.add_argument('--valid-batch-size', type=int, default=16, metavar='N', help='input batch size for testing (default: 256)')
 parser.add_argument('--epochs', type=int, default=500, metavar='N', help='number of epochs to train (default: 500)')
 parser.add_argument('--lr', type=float, default=0.001, metavar='LR', help='learning rate (default: 0.001)')
-parser.add_argument('--beta1', type=float, default=0.9, metavar='beta1', help='Beta1 (default: 0.9)')
-parser.add_argument('--beta2', type=float, default=0.999, metavar='beta2', help='Beta2 (default: 0.9)')
+parser.add_argument('--momentum', type=float, default=0.9, metavar='momentum', help='Momentum (default: 0.9)')
 parser.add_argument('--l2', type=float, default=5e-4, metavar='lambda', help='L2 wheight decay coefficient (default: 0.0005)')
 parser.add_argument('--smoothing', type=float, default=0.2, metavar='l', help='Label smoothing (default: 0.2)')
 parser.add_argument('--centroid-smoothing', type=float, default=0.9, metavar='Lamb', help='Moving average parameter for centroids')
@@ -33,8 +31,6 @@ parser.add_argument('--checkpoint-epoch', type=int, default=None, metavar='N', h
 parser.add_argument('--checkpoint-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
 parser.add_argument('--data-path', type=str, default='./data_train', metavar='Path', help='Path to data')
 parser.add_argument('--hdf-path', type=str, default=None, metavar='Path', help='Path to data stored in hdf. Has priority over data path if set')
-parser.add_argument('--valid-data-path', type=str, default='./data_val', metavar='Path', help='Path to data')
-parser.add_argument('--valid-hdf-path', type=str, default=None, metavar='Path', help='Path to valid data stored in hdf. Has priority over valid data path if set')
 parser.add_argument('--seed', type=int, default=42, metavar='S', help='random seed (default: 42)')
 parser.add_argument('--n-workers', type=int, default=4, metavar='N', help='Workers for data loading. Default is 4')
 parser.add_argument('--softmax', choices=['softmax', 'am_softmax'], default='softmax', help='Softmax type')
@@ -47,8 +43,26 @@ parser.add_argument('--no-cp', action='store_true', default=False, help='Disable
 parser.add_argument('--ablation-sim', action='store_true', default=False, help='Disables similarity learning')
 parser.add_argument('--ablation-ce', action='store_true', default=False, help='Disables auxiliary classification loss')
 parser.add_argument('--verbose', type=int, default=1, metavar='N', help='Verbose is activated if > 0')
+###Validation config
+parser.add_argument('--eval-centroid-smoothing', type=float, default=0.9, metavar='Lamb', help='Moving average parameter for centroids')
+parser.add_argument('--valid-hdf-path', type=str, default=None, metavar='Path', help='Path to valid data stored in hdf. Has priority over valid data path if set')
+parser.add_argument('--num-shots', type=int, default=5, help='Number of examples per class (default: 5)')
+parser.add_argument('--num-ways', type=int, default=5, help='Number of classes per task (default: 5)')
+parser.add_argument('--num-queries', type=int, default=15, help='Number of data points per class on test partition (default: 15)')
+parser.add_argument('--num-runs', type=int, default=600, help='Number of evaluation runs (default: 600)')
+parser.add_argument('--valid-batch-size', type=int, default=16, metavar='N', help='input batch size for testing (default: 256)')
+parser.add_argument('--valid-epochs', type=int, default=500, metavar='N', help='number of epochs to validation (default: 500)')
+parser.add_argument('--eval-workers', type=int, default=4, metavar='N', help='Workers for data loading. Default is 4')
 args = parser.parse_args()
 args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
+
+eval_config={'num_shots':args.num_shots, 
+'num_ways':args.num_ways, 
+'num_runs':arg.num_runs, 
+'epochs':args.valid_epochs, 
+'batch_size':args.valid_batch_size, 
+'workers':args.eval_workers, 
+'centroid_smoothing':args.eval_centroid_smoothing}
 
 if args.cuda:
 	torch.backends.cudnn.benchmark=True
@@ -64,15 +78,9 @@ else:
 	trainset = datasets.ImageFolder(args.data_path, transform=transform_train)
 	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True)
 
-
-if args.valid_hdf_path:
-	transform_test = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
-	validset = Loader(args.valid_hdf_path, transform_test)
-	valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=True, num_workers=args.n_workers, pin_memory=True, collate_fn=collater)
-else:
-	transform_test = transforms.Compose([transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
-	validset = datasets.ImageFolder(args.valid_data_path, transform=transform_test)
-	valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=True, num_workers=args.n_workers, pin_memory=True)
+transform_train_eval = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=8), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])
+transform_test = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+task_builder = fewshot_eval_builder(hdf5_name=args.valid_hdf_path, train_transformation=transform_train_eval, test_transformation=transform_test, k_shot=args.num_shots, n_way=args.num_ways, n_queries=args.num_queries)
 
 args.nclasses = trainset.n_classes if isinstance(trainset, Loader) else len(trainset.classes)
 
@@ -90,11 +98,11 @@ if args.cuda:
 	device = get_freer_gpu()
 	model = model.to(device)
 
-optimizer = optim.Adam(model.parameters(), lr=args.lr, betas=(args.beta1, args.beta2), weight_decay=args.l2)
+optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.l2, nesterov=True)
 
-trainer = TrainLoop(model, optimizer, train_loader, valid_loader, max_gnorm=args.max_gnorm, label_smoothing=args.smoothing,
-			verbose=args.verbose, save_cp=(not args.no_cp), checkpoint_path=args.checkpoint_path,
-			checkpoint_epoch=args.checkpoint_epoch, ablation_sim=args.ablation_sim, ablation_ce=args.ablation_ce, cuda=args.cuda)
+trainer = TrainLoop(model, optimizer, train_loader, valid_loader, eval_config=eval_config, max_gnorm=args.max_gnorm, label_smoothing=args.smoothing,
+			verbose=args.verbose, save_cp=(not args.no_cp), checkpoint_path=args.checkpoint_path, checkpoint_epoch=args.checkpoint_epoch, 
+			ablation_sim=args.ablation_sim, ablation_ce=args.ablation_ce, cuda=args.cuda)
 
 if args.verbose >0:
 	args_dict = dict(vars(args))

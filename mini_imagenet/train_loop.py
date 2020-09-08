@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
 
 import numpy as np
 
@@ -13,7 +14,7 @@ from data_load import Loader
 
 class TrainLoop(object):
 
-	def __init__(self, model, optimizer, train_loader, valid_loader, max_gnorm, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True):
+	def __init__(self, model, optimizer, train_loader, valid_loader, eval_config, max_gnorm, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True):
 		if checkpoint_path is None:
 			# Save to current directory
 			self.checkpoint_path = os.getcwd()
@@ -32,6 +33,7 @@ class TrainLoop(object):
 		self.max_gnorm = max_gnorm
 		self.train_loader = train_loader
 		self.valid_loader = valid_loader
+		self.eval_config = eval_config
 		self.total_iters = 0
 		self.cur_epoch = 0
 		self.harvester = AllTripletSelector()
@@ -48,8 +50,7 @@ class TrainLoop(object):
 			self.disc_label_smoothing = 0.0
 
 		if self.valid_loader is not None:
-			self.history['e2e_eer'] = []
-			self.history['cos_eer'] = []
+			self.history['acc'] = []
 
 		if checkpoint_epoch is not None:
 			self.load_checkpoint(self.save_epoch_fmt.format(checkpoint_epoch))
@@ -98,25 +99,13 @@ class TrainLoop(object):
 
 			if self.valid_loader is not None:
 
-				e2e_scores, cos_scores, labels = None, None, None
+				accuracy = self.valid()
 
-				for t, batch in enumerate(self.valid_loader):
-					e2e_scores_batch, cos_scores_batch, labels_batch = self.valid(batch)
-
-					try:
-						e2e_scores = np.concatenate([e2e_scores, e2e_scores_batch], 0)
-						cos_scores = np.concatenate([cos_scores, cos_scores_batch], 0)
-						labels = np.concatenate([labels, labels_batch], 0)
-					except:
-						e2e_scores, cos_scores, labels = e2e_scores_batch, cos_scores_batch, labels_batch
-
-				self.history['e2e_eer'].append(compute_eer(labels, e2e_scores))
-				self.history['cos_eer'].append(compute_eer(labels, cos_scores))
+				self.history['acc'].append(accuracy)
 
 				if self.verbose>0:
 					print(' ')
-					print('Current e2e EER, best e2e EER, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['e2e_eer'][-1], np.min(self.history['e2e_eer']), 1+np.argmin(self.history['e2e_eer'])))
-					print('Current cos EER, best cos EER, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['cos_eer'][-1], np.min(self.history['cos_eer']), 1+np.argmin(self.history['cos_eer'])))
+					print('Current ACC, best ACC, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['acc'][-1], np.max(self.history['acc']), 1+np.argmax(self.history['acc'])))
 
 			if self.verbose>0:
 				print('Current LR: {}'.format(self.optimizer.param_groups[0]['lr']))
@@ -124,7 +113,7 @@ class TrainLoop(object):
 			self.scheduler.step()
 			self.cur_epoch += 1
 
-			if self.valid_loader is not None and self.save_cp and (self.cur_epoch % save_every == 0 or self.history['e2e_eer'][-1] < np.min([np.inf]+self.history['e2e_eer'][:-1]) or self.history['cos_eer'][-1] < np.min([np.inf]+self.history['cos_eer'][:-1])):
+			if self.valid_loader is not None and self.save_cp and (self.cur_epoch % save_every == 0 or self.history['acc'][-1] > np.max([-np.inf]+self.history['acc'][:-1])):
 					self.checkpointing()
 			elif self.save_cp and self.cur_epoch % save_every == 0:
 					self.checkpointing()
@@ -134,10 +123,9 @@ class TrainLoop(object):
 
 		if self.valid_loader is not None:
 			if self.verbose>0:
-				print('Best e2e eer and corresponding epoch: {:0.4f}, {}'.format(np.min(self.history['e2e_eer']), 1+np.argmin(self.history['e2e_eer'])))
-				print('Best cos eer and corresponding epoch: {:0.4f}, {}'.format(np.min(self.history['cos_eer']), 1+np.argmin(self.history['cos_eer'])))
+				print('Best e2e eer and corresponding epoch: {:0.4f}, {}'.format(np.min(self.history['acc']), 1+np.argmin(self.history['acc'])))
 
-			return [np.min(self.history['e2e_eer']), np.min(self.history['cos_eer'])]
+			return [np.min(self.history['acc'])]
 		else:
 			return [np.min(self.history['train_loss'])]
 
@@ -185,33 +173,56 @@ class TrainLoop(object):
 		return loss.item(), 0.0 if self.ablation_ce else ce_loss.item(), sim_loss.item(), loss_bin.item()
 
 
-	def valid(self, batch):
+	def valid(self):
 
 		self.model.eval()
 
+		acc_list = []
+
 		with torch.no_grad():
 
-			x, y = batch
+			for i in range(self.eval_config['num_runs']):
 
-			x = x.to(self.device)
-			y = y.to(self.device)
+				centroids = torch.rand(self.eval_config['num_ways'], self.model.centroids.size(1)).to(self.device)
+				
+				train_dataset, test_dataset = self.valid_loader.get_task_loaders()
 
-			embeddings = self.model.forward(x)
+				### Use the train split to compute the centroids
 
-			# Get all triplets now for bin classifier
-			triplets_idx = self.harvester.get_triplets(embeddings.detach(), y)
-			triplets_idx = triplets_idx.to(self.device)
+				dataloader = DataLoader(train_dataset, batch_size=eval_config['batch_size'], shuffle=True, num_workers=self.eval_config['workers'])
 
-			emb_a = torch.index_select(embeddings, 0, triplets_idx[:, 0])
-			emb_p = torch.index_select(embeddings, 0, triplets_idx[:, 1])
-			emb_n = torch.index_select(embeddings, 0, triplets_idx[:, 2])
+				for epoch in range(self.eval_config['epochs']):
+					for batch in dataloader:
 
-			e2e_scores_p = self.model.forward_bin(emb_a, emb_p).squeeze()
-			e2e_scores_n = self.model.forward_bin(emb_a, emb_n).squeeze()
-			cos_scores_p = torch.nn.functional.cosine_similarity(emb_a, emb_p)
-			cos_scores_n = torch.nn.functional.cosine_similarity(emb_a, emb_n)
+						x, y = batch
 
-		return np.concatenate([e2e_scores_p.detach().cpu().numpy(), e2e_scores_n.detach().cpu().numpy()], 0), np.concatenate([cos_scores_p.detach().cpu().numpy(), cos_scores_n.detach().cpu().numpy()], 0), np.concatenate([np.ones(e2e_scores_p.size(0)), np.zeros(e2e_scores_n.size(0))], 0)
+						x = x.to(device)
+						y = y.to(device).squeeze()
+
+						embeddings = model.forward(x)
+						centroids = model.update_centroids_eval(centroids, embeddings, y, update_lambda=self.eval_config['centroid_smoothing'])
+
+				### Eval on test split
+
+				correct = 0
+
+				dataloader = DataLoader(test_dataset, batch_size=eval_config['batch_size'], shuffle=False, num_workers=self.eval_config['workers'])
+
+				for batch in dataloader:
+
+					x, y = batch
+
+					x = x.to(device)
+					y = y.to(device).squeeze()
+
+					embeddings = model.forward(x)
+					out = model.compute_logits_eval(centroids, embeddings)
+					pred = out.max(1)[1].long()
+					correct += pred.squeeze().eq(y).sum().item()
+
+				acc_list.append(100.*correct/len(test_dataset))
+
+		return np.mean(acc_list)
 
 	def checkpointing(self):
 

@@ -257,7 +257,7 @@ class ResNet(nn.Module):
 			emb = embeddings.unsqueeze(1)
 
 			centroids = centroids.repeat(embeddings.size(0), 1, 1)
-			emb = emb.repeat(1, centroids.size(0), 1)
+			emb = emb.repeat(1, centroids.size(1), 1)
 
 			if ablation:
 				return -((centroids-emb).pow(2).sum(-1).sqrt()).transpose(1,-1)
