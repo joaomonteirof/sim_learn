@@ -98,7 +98,7 @@ if __name__ == '__main__':
 				y = y.to(device).squeeze()
 
 				embeddings = model.forward(x)
-				out = model.compute_logits(centroids, embeddings)
+				out = model.compute_logits_eval(centroids, embeddings)
 				pred = out.max(1)[1].long()
 				correct += pred.squeeze().eq(y).sum().item()
 
