@@ -238,6 +238,32 @@ class ResNet(nn.Module):
 		else:
 			return self.forward_bin(centroids, emb).squeeze(-1).transpose(1,-1)
 
+	def update_centroids_eval(self, centroids, embeddings, targets, update_lambda=None):
+
+			centroids =  centroids.to(embeddings.device)
+			if not update_lambda: update_lambda = self.centroids_lambda
+
+			new_centroids, mask = get_centroids(embeddings, targets, self.n_classes)
+
+			with torch.no_grad():
+				mask *= 1.-update_lambda
+				centroids = (1.-mask)*centroids + mask*new_centroids
+
+			return centroids
+
+	def compute_logits_eval(self, centroids, embeddings, ablation=False):
+
+			centroids = centroids.unsqueeze(0)
+			emb = embeddings.unsqueeze(1)
+
+			centroids = centroids.repeat(embeddings.size(0), 1, 1)
+			emb = emb.repeat(1, centroids.size(0), 1)
+
+			if ablation:
+				return -((centroids-emb).pow(2).sum(-1).sqrt()).transpose(1,-1)
+			else:
+				return self.forward_bin(centroids, emb).squeeze(-1).transpose(1,-1)
+
 def ResNet12(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=100, centroids_lambda=0.9, keep_prob=1.0, avg_pool=True, **kwargs):
 	"""Constructs a ResNet-12 model.
 	"""

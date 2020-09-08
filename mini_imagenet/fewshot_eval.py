@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
 		for i in range(args.num_runs):
 
-			model.centroids = torch.rand(args.num_ways, emb_size).to(device)
+			centroids = torch.rand(args.num_ways, emb_size).to(device)
 			
 			train_dataset, test_dataset = task_builder.get_task_loaders()
 
@@ -82,8 +82,7 @@ if __name__ == '__main__':
 					y = y.to(device).squeeze()
 
 					embeddings = model.forward(x)
-
-					model.update_centroids(embeddings, y)
+					centroids = model.update_centroids_eval(centroids, embeddings, y, update_lambda=args.centroid_smoothing)
 
 			### Eval on test split
 
@@ -99,8 +98,7 @@ if __name__ == '__main__':
 				y = y.to(device).squeeze()
 
 				embeddings = model.forward(x)
-
-				out = model.compute_logits(embeddings)
+				out = model.compute_logits(centroids, embeddings)
 				pred = out.max(1)[1].long()
 				correct += pred.squeeze().eq(y).sum().item()
 
