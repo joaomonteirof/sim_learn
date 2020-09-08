@@ -49,7 +49,7 @@ parser.add_argument('--valid-hdf-path', type=str, default=None, metavar='Path', 
 parser.add_argument('--num-shots', type=int, default=5, help='Number of examples per class (default: 5)')
 parser.add_argument('--num-ways', type=int, default=5, help='Number of classes per task (default: 5)')
 parser.add_argument('--num-queries', type=int, default=15, help='Number of data points per class on test partition (default: 15)')
-parser.add_argument('--num-runs', type=int, default=600, help='Number of evaluation runs (default: 600)')
+parser.add_argument('--num-runs', type=int, default=20, help='Number of evaluation runs (default: 20)')
 parser.add_argument('--valid-batch-size', type=int, default=16, metavar='N', help='input batch size for testing (default: 256)')
 parser.add_argument('--valid-epochs', type=int, default=500, metavar='N', help='number of epochs to validation (default: 500)')
 parser.add_argument('--eval-workers', type=int, default=4, metavar='N', help='Workers for data loading. Default is 4')
