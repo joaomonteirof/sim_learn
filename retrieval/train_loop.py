@@ -198,7 +198,7 @@ class TrainLoop(object):
 		embeddings = torch.cat(embeddings, 0)
 		labels = torch.cat(labels, 0)
 
-		for i, label in labels:
+		for i, label in enumerate(labels):
 
 			enroll_emb = embeddings[i].unsqueeze(0).to(self.device)
 
