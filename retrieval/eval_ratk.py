@@ -134,7 +134,7 @@ if __name__ == '__main__':
 				test_emb = embeddings[j:(min(j+args.batch_size, len(embeddings))),:].to(device)
 				enroll_emb_repeated = enroll_emb.repeat(test_emb.size(0), 1)
 
-				dist_e2e = model.forward_bin(torch.cat([enroll_emb_repeated, test_emb], 1)).squeeze(-1)
+				dist_e2e = model.forward_bin(enroll_emb_repeated, test_emb).squeeze(-1)
 				dist_cos = torch.nn.functional.cosine_similarity(enroll_emb_repeated, test_emb)
 				dist_fus = (torch.sigmoid(dist_e2e) + 0.5*(dist_cos+1.))*0.5
 				

@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from harvester import AllTripletSelector
 from models.losses import LabelSmoothingLoss
-from utils import compute_eer, correct_topk
+from utils import correct_topk
 from data_load import Loader
 
 class TrainLoop(object):
@@ -40,7 +40,7 @@ class TrainLoop(object):
 		self.device = next(self.model.parameters()).device
 		self.logger = logger
 		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'sim_loss': [], 'sim_loss_batch': [], 'bin_loss': [], 'bin_loss_batch': []}
-		self.best_e2e_eer, self.best_cos_eer = np.inf, np.inf
+		self.best_r_at_3 = -np.inf
 
 		if label_smoothing>0.0:
 			self.ce_criterion = LabelSmoothingLoss(label_smoothing, lbl_set_size=self.model.n_classes)
@@ -50,8 +50,7 @@ class TrainLoop(object):
 			self.disc_label_smoothing = 0.0
 
 		if self.valid_loader is not None:
-			self.history['e2e_eer'] = []
-			self.history['cos_eer'] = []
+			self.history['r@3'] = []
 
 		if checkpoint_epoch is not None:
 			self.load_checkpoint(self.save_epoch_fmt.format(checkpoint_epoch))
@@ -102,7 +101,7 @@ class TrainLoop(object):
 
 				if self.total_iters % eval_every == 0:
 					self.evaluate()
-					if self.save_cp and ( self.history['e2e_eer'][-1] < np.min([np.inf]+self.history['e2e_eer'][:-1]) or self.history['cos_eer'][-1] < np.min([np.inf]+self.history['cos_eer'][:-1]) ):
+					if self.save_cp and self.history['r@3'][-1] > np.max([-np.inf]+self.history['r@3'][:-1]):
 							self.checkpointing()
 							self.save_epoch_cp = True
 
@@ -127,7 +126,7 @@ class TrainLoop(object):
 			print('Training done!')
 
 		if self.valid_loader is not None:
-			return [np.min(self.history['e2e_eer']), np.min(self.history['cos_eer'])]
+			return [self.history['r@3']]
 		else:
 			return [np.min(self.history['train_loss'])]
 
@@ -177,79 +176,83 @@ class TrainLoop(object):
 
 		return loss.item(), 0.0 if self.ablation_ce else ce_loss.item(), sim_loss.item(), loss_bin.item()
 
-	def valid(self, batch):
+	def valid(self):
 
 		self.model.eval()
+		r_at_3_e2e = 0
+		embeddings = []
+		labels = []
 
 		with torch.no_grad():
 
-			x, y = batch
+			for batch in self.valid_loader:
 
-			x = x.to(self.device)
-			y = y.to(self.device)
+				x, y = batch
 
-			embeddings = self.model.forward(x)
+				if args.cuda:
+					x = x.to(self.device)
 
-			# Get all triplets now for bin classifier
-			triplets_idx = self.harvester.get_triplets(embeddings.detach(), y)
-			triplets_idx = triplets_idx.to(self.device)
+				emb = self.model.forward(x).detach().cpu()
 
-			emb_a = torch.index_select(embeddings, 0, triplets_idx[:, 0])
-			emb_p = torch.index_select(embeddings, 0, triplets_idx[:, 1])
-			emb_n = torch.index_select(embeddings, 0, triplets_idx[:, 2])
+				embeddings.append(emb)
+				labels.append(y)
 
-			e2e_scores_p = self.model.forward_bin(emb_a, emb_p).squeeze()
-			e2e_scores_n = self.model.forward_bin(emb_a, emb_n).squeeze()
-			cos_scores_p = torch.nn.functional.cosine_similarity(emb_a, emb_p)
-			cos_scores_n = torch.nn.functional.cosine_similarity(emb_a, emb_n)
+		embeddings = torch.cat(embeddings, 0)
+		labels = torch.cat(labels, 0)
 
-		return np.concatenate([e2e_scores_p.detach().cpu().numpy(), e2e_scores_n.detach().cpu().numpy()], 0), np.concatenate([cos_scores_p.detach().cpu().numpy(), cos_scores_n.detach().cpu().numpy()], 0), np.concatenate([np.ones(e2e_scores_p.size(0)), np.zeros(e2e_scores_n.size(0))], 0)
+		for i, label in labels:
+
+			enroll_emb = embeddings[i].unsqueeze(0).to(self.device)
+
+			e2e_scores = torch.zeros(len(labels))
+
+			for j in range(0, len(labels), self.valid_loader.batch_size):
+
+				test_emb = embeddings[j:(min(j+self.valid_loader.batch_size, len(embeddings))),:].to(self.device)
+				enroll_emb_repeated = enroll_emb.repeat(test_emb.size(0), 1)
+
+				dist_e2e = self.model.forward_bin(enroll_emb_repeated, test_emb).squeeze(-1)
+				
+				for l in range(dist_e2e.size(0)):
+
+					if i==(j+l): continue ## skip same example
+
+					e2e_scores[j+l] = dist_e2e[l].item()
+
+			_, topk_e2e_idx = torch.topk(torch.Tensor(e2e_scores), max(args.k_list)+1)
+
+			sorted_e2e_classes = labels[topk_e2e_idx]
+
+			if label in sorted_e2e_classes[:3]:
+				r_at_3_e2e+=1
+
+			r_at_3_e2e/=len(labels)
+
+			return r_at_3_e2e
+
+
 
 	def evaluate(self):
 
 		if self.verbose>0:
 			print('\nIteration {} - Epoch {}'.format(self.total_iters, self.cur_epoch))
 
-		e2e_scores, cos_scores, labels = None, None, None
+		r_at_3 = self.valid()
 
-		for t, batch in enumerate(self.valid_loader):
-			e2e_scores_batch, cos_scores_batch, labels_batch = self.valid(batch)
+		self.history['r@3'].append(r_at_3)
 
-			try:
-				e2e_scores = np.concatenate([e2e_scores, e2e_scores_batch], 0)
-				cos_scores = np.concatenate([cos_scores, cos_scores_batch], 0)
-				labels = np.concatenate([labels, labels_batch], 0)
-			except:
-				e2e_scores, cos_scores, labels = e2e_scores_batch, cos_scores_batch, labels_batch
-
-		self.history['e2e_eer'].append(compute_eer(labels, e2e_scores))
-		self.history['cos_eer'].append(compute_eer(labels, cos_scores))
-
-		if self.history['e2e_eer'][-1]<self.best_e2e_eer:
-			self.best_e2e_eer = self.history['e2e_eer'][-1]
-			self.best_e2e_eer_epoch = self.cur_epoch
-			self.best_e2e_eer_iteration = self.total_iters
-
-		if self.history['cos_eer'][-1]<self.best_cos_eer:
-			self.best_cos_eer = self.history['cos_eer'][-1]
-			self.best_cos_eer_epoch = self.cur_epoch
-			self.best_cos_eer_iteration = self.total_iters
+		if self.history['r@3'][-1]>self.best_r_at_3:
+			self.best_r_at_3 = self.history['r@3'][-1]
+			self.best_r_at_3_epoch = self.cur_epoch
+			self.best_r_at_3_iteration = self.total_iters
 
 		if self.logger:
-			self.logger.add_scalar('Valid/E2E EER', self.history['e2e_eer'][-1], self.total_iters)
-			self.logger.add_scalar('Valid/Best E2E EER', np.min(self.history['e2e_eer']), self.total_iters)
-			self.logger.add_scalar('Valid/Cosine EER', self.history['cos_eer'][-1], self.total_iters)
-			self.logger.add_scalar('Valid/Best Cosine EER', np.min(self.history['cos_eer']), self.total_iters)
-			self.logger.add_pr_curve('E2E ROC', labels=labels, predictions=e2e_scores, global_step=self.total_iters)
-			self.logger.add_pr_curve('Cosine ROC', labels=labels, predictions=cos_scores, global_step=self.total_iters)
-			self.logger.add_histogram('Valid/COS_Scores', values=cos_scores, global_step=self.total_iters)
-			self.logger.add_histogram('Valid/E2E_Scores', values=e2e_scores, global_step=self.total_iters)
-			self.logger.add_histogram('Valid/Labels', values=labels, global_step=self.total_iters)
+			self.logger.add_scalar('Valid/r@3', self.history['r@3'][-1], self.total_iters)
+			self.logger.add_scalar('Valid/Best r@3', np.max(self.history['r@3']), self.total_iters)
 			self.logger.add_embedding(mat=self.model.centroids.detach().cpu().numpy(), metadata=np.arange(self.model.centroids.size(0)), global_step=self.total_iters)
 
 		if self.verbose>0:
-			print('\nCurrent e2e EER, best e2e EER, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(self.history['e2e_eer'][-1], np.min(self.history['e2e_eer']), self.best_e2e_eer_epoch, self.best_e2e_eer_iteration))
-			print('Current cos EER, best cos EER, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(self.history['cos_eer'][-1], np.min(self.history['cos_eer']), self.best_cos_eer_epoch, self.best_cos_eer_iteration))
+			print('\nCurrent r@3, best r@3, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(self.history['r@3'][-1], np.max(self.history['r@3']), self.best_r_at_3_epoch, self.best_r_at_3_iteration))
 
 	def checkpointing(self):
 
