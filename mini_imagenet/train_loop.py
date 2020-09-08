@@ -196,8 +196,8 @@ class TrainLoop(object):
 
 						x, y = batch
 
-						x = x.to(device)
-						y = y.to(device).squeeze()
+						x = x.to(self.device)
+						y = y.to(self.device).squeeze()
 
 						embeddings = model.forward(x)
 						centroids = model.update_centroids_eval(centroids, embeddings, y, update_lambda=self.eval_config['centroid_smoothing'])
@@ -212,8 +212,8 @@ class TrainLoop(object):
 
 					x, y = batch
 
-					x = x.to(device)
-					y = y.to(device).squeeze()
+					x = x.to(self.device)
+					y = y.to(self.device).squeeze()
 
 					embeddings = model.forward(x)
 					out = model.compute_logits_eval(centroids, embeddings)
