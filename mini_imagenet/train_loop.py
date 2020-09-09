@@ -105,6 +105,9 @@ class TrainLoop(object):
 
 				if self.verbose>0:
 					print(' ')
+					print('Eval. config:')
+					for el in self.eval_config:
+						print('{}: {}'.format(el, self.eval_config[el]))
 					print('Current ACC, best ACC, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['acc'][-1], np.max(self.history['acc']), 1+np.argmax(self.history['acc'])))
 
 			if self.verbose>0:
@@ -191,7 +194,7 @@ class TrainLoop(object):
 
 				dataloader = DataLoader(train_dataset, batch_size=self.eval_config['batch_size'], shuffle=True, num_workers=self.eval_config['workers'])
 
-				for epoch in range(self.eval_config['epochs']):
+				for j in range(self.eval_config['epochs']):
 					for batch in dataloader:
 
 						x, y = batch

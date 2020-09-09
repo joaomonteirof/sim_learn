@@ -44,12 +44,12 @@ parser.add_argument('--ablation-sim', action='store_true', default=False, help='
 parser.add_argument('--ablation-ce', action='store_true', default=False, help='Disables auxiliary classification loss')
 parser.add_argument('--verbose', type=int, default=1, metavar='N', help='Verbose is activated if > 0')
 ###Validation config
-parser.add_argument('--eval-centroid-smoothing', type=float, default=0.9, metavar='Lamb', help='Moving average parameter for centroids')
+parser.add_argument('--eval-centroid-smoothing', type=float, default=0.5, metavar='Lamb', help='Moving average parameter for centroids')
 parser.add_argument('--valid-hdf-path', type=str, default=None, metavar='Path', help='Path to valid data stored in hdf. Has priority over valid data path if set')
 parser.add_argument('--num-shots', type=int, default=5, help='Number of examples per class (default: 5)')
 parser.add_argument('--num-ways', type=int, default=5, help='Number of classes per task (default: 5)')
 parser.add_argument('--num-queries', type=int, default=15, help='Number of data points per class on test partition (default: 15)')
-parser.add_argument('--num-runs', type=int, default=20, help='Number of evaluation runs (default: 20)')
+parser.add_argument('--num-runs', type=int, default=10, help='Number of evaluation runs (default: 10)')
 parser.add_argument('--valid-batch-size', type=int, default=16, metavar='N', help='input batch size for testing (default: 256)')
 parser.add_argument('--valid-epochs', type=int, default=500, metavar='N', help='number of epochs to validation (default: 500)')
 parser.add_argument('--eval-workers', type=int, default=4, metavar='N', help='Workers for data loading. Default is 4')
@@ -79,6 +79,7 @@ else:
 	train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed, pin_memory=True)
 
 transform_train_eval = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=8), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])
+transform_train_eval.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
 transform_test = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
 valid_loader = fewshot_eval_builder(hdf5_name=args.valid_hdf_path, train_transformation=transform_train_eval, test_transformation=transform_test, k_shot=args.num_shots, n_way=args.num_ways, n_queries=args.num_queries)
 
