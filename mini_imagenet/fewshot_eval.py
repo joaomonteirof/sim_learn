@@ -41,19 +41,20 @@ if __name__ == '__main__':
 
 
 	ckpt = torch.load(args.cp_path, map_location = lambda storage, loc: storage)
-	dropout_prob, n_hidden, hidden_size, softmax = ckpt['dropout_prob'], ckpt['n_hidden'], ckpt['hidden_size'], ckpt['sm_type']
+	dropout_prob, n_hidden, hidden_size, softmax, n_classes = ckpt['dropout_prob'], ckpt['n_hidden'], ckpt['hidden_size'], ckpt['sm_type'], ckpt['centroids'].size(0)
 	emb_size = ckpt['centroids'].size(1)
 
 	print('\n', args, '\n')
 
 	if args.model == 'resnet':
-		model = resnet.ResNet18(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing, n_classes=args.num_ways)
+		model = resnet.ResNet18(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing, sm_type=softmax, n_classes=n_classes)
 	elif args.model == 'resnet_12':
-		model = resnet12.ResNet12(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing, n_classes=args.num_ways)
+		model = resnet12.ResNet12(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing, sm_type=softmax, n_classes=n_classes)
 	elif args.model == 'wideresnet':
-		model = wideresnet.WideResNet(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing, n_classes=args.num_ways)
+		model = wideresnet.WideResNet(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing, sm_type=softmax, n_classes=n_classes)
 	
 	print(model.load_state_dict(ckpt['model_state'], strict=False))
+	model.n_classes = args.num_ways
 
 	if args.cuda:
 		device = get_freer_gpu()
@@ -74,10 +75,10 @@ if __name__ == '__main__':
 
 			### Use the train split to compute the centroids
 
-			dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
+			dataloader_train = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
 
 			for epoch in range(args.epochs):
-				for batch in dataloader:
+				for batch in dataloader_train:
 
 					x, y = batch
 
@@ -91,9 +92,9 @@ if __name__ == '__main__':
 
 			correct = 0
 
-			dataloader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
+			dataloader_test = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
 
-			for batch in dataloader:
+			for batch in dataloader_test:
 
 				x, y = batch
 
