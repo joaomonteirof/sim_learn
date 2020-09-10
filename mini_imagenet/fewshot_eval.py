@@ -61,7 +61,7 @@ if __name__ == '__main__':
 	else:
 		device = torch.device('cpu')
 
-	model = model.to(device)
+	model = model.to(device).eval()
 
 	acc_list = []
 
