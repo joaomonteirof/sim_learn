@@ -150,7 +150,7 @@ optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.l2, mome
 
 trainer = TrainLoop(model, optimizer, train_loader, valid_loader, max_gnorm=args.max_gnorm,
 		label_smoothing=args.smoothing, verbose=args.verbose, save_cp=(not args.no_cp), 
-		checkpoint_path=args.checkpoint_path, checkpoint_epoch=args.checkpoint_epoch, 
+		checkpoint_path=args.checkpoint_path, checkpoint_epoch=args.checkpoint_epoch, pretrained=args.pretrained or args.pretrained_path is not None, 
 		ablation_sim=args.ablation_sim, ablation_ce=args.ablation_ce, cuda=args.cuda, logger=writer)
 
 if args.verbose >0:
