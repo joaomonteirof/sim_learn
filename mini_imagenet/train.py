@@ -44,7 +44,7 @@ parser.add_argument('--ablation-sim', action='store_true', default=False, help='
 parser.add_argument('--ablation-ce', action='store_true', default=False, help='Disables auxiliary classification loss')
 parser.add_argument('--verbose', type=int, default=1, metavar='N', help='Verbose is activated if > 0')
 ###Validation config
-parser.add_argument('--eval-centroid-smoothing', type=float, default=0.5, metavar='Lamb', help='Moving average parameter for centroids')
+parser.add_argument('--eval-centroid-smoothing', type=float, default=0.9, metavar='Lamb', help='Moving average parameter for centroids')
 parser.add_argument('--valid-hdf-path', type=str, default=None, metavar='Path', help='Path to valid data stored in hdf. Has priority over valid data path if set')
 parser.add_argument('--num-shots', type=int, default=5, help='Number of examples per class (default: 5)')
 parser.add_argument('--num-ways', type=int, default=5, help='Number of classes per task (default: 5)')
