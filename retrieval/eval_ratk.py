@@ -22,7 +22,6 @@ if __name__ == '__main__':
 	parser.add_argument('--batch-size', type=int, default=64, metavar='N', help='input batch size for training (default: 64)')
 	parser.add_argument('--n-workers', type=int, default=4, metavar='N', help='Workers for data loading. Default is 4')
 	parser.add_argument('--model', choices=['vgg', 'resnet', 'densenet'], default='resnet')
-	parser.add_argument('--dropout-prob', type=float, default=0.25, metavar='p', help='Dropout probability (default: 0.25)')
 	parser.add_argument('--k-list', nargs='+', required=True, help='List of k values for R@K computation')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
 	args = parser.parse_args()
@@ -42,14 +41,6 @@ if __name__ == '__main__':
 
 	ckpt = torch.load(args.cp_path, map_location = lambda storage, loc: storage)
 	dropout_prob, n_hidden, hidden_size, softmax, n_classes = ckpt['dropout_prob'], ckpt['n_hidden'], ckpt['hidden_size'], ckpt['sm_type'], ckpt['centroids'].size(0)
-
-	except KeyError as err:
-		print("Key Error: {0}".format(err))
-		print('\nProbably old cp has no info regarding classifiers arch!\n')
-		n_hidden, hidden_size, softmax, n_classes = get_classifier_config_from_cp(ckpt)
-		dropout_prob = args.dropout_prob
-		emb_size = 350
-		rproj_size = -1
 
 	if args.model == 'vgg':
 		model = vgg.VGG('VGG19', nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax, n_classes=n_classes)
