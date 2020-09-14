@@ -1,6 +1,7 @@
 from __future__ import print_function
 import argparse
 import torch
+import torch.optim as optim
 import numpy as np
 from torchvision import datasets, transforms
 from data_load import fewshot_eval_builder
@@ -26,6 +27,7 @@ if __name__ == '__main__':
 	parser.add_argument('--num-queries', type=int, default=15, help='Number of data points per class on test partition (default: 15)')
 	parser.add_argument('--num-runs', type=int, default=600, help='Number of evaluation runs (default: 600)')
 	parser.add_argument('--epochs', type=int, default=500, metavar='N', help='number of epochs to adapt centroids (default: 500)')
+	parser.add_argument('--sgd-epochs', type=int, default=0, metavar='N', help='number of epochs to adapt centroids with SGD (default: 0)')
 	parser.add_argument('--aug-M', type=int, default=15, metavar='AUGM', help='Augmentation hp. Default is 15')
 	parser.add_argument('--aug-N', type=int, default=1, metavar='AUGN', help='Augmentation hp. Default is 1')
 	parser.add_argument('--batch-size', type=int, default=24, metavar='N', help='batch size(default: 24)')
@@ -81,12 +83,28 @@ if __name__ == '__main__':
 				for batch in dataloader_train:
 
 					x, y = batch
-
 					x = x.to(device)
 					y = y.to(device).squeeze()
 
 					embeddings = model.forward(x)
 					centroids = model.update_centroids_eval(centroids, embeddings, y, update_lambda=args.centroid_smoothing)
+
+			if args.sgd_epochs>0:
+				optimizer = optim.SGD(model.parameters(), lr=1e-3, momentum=0.9, weight_decay=0.0, nesterov=True)
+				for epoch in range(args.sgd_epochs):
+					for batch in dataloader_train:
+
+						optimizer.zero_grad()
+
+						x, y = batch
+						x = x.to(device)
+						y = y.to(device).squeeze()
+
+						embeddings = model.forward(x)
+						out = model.compute_logits_eval(centroids, embeddings)
+						loss = torch.nn.CrossEntropyLoss()(out, y)
+						loss.backward()
+						optimizer.step()
 
 			### Eval on test split
 
