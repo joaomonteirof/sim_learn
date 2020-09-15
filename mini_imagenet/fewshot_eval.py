@@ -43,11 +43,11 @@ if __name__ == '__main__':
 	print('\n', args, '\n')
 
 	if args.model == 'resnet':
-		model = resnet.ResNet18(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing, sm_type=softmax, n_classes=n_classes)
+		model = resnet.ResNet18(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax, n_classes=n_classes)
 	elif args.model == 'resnet_12':
-		model = resnet12.ResNet12(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing, sm_type=softmax, n_classes=n_classes)
+		model = resnet12.ResNet12(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax, n_classes=n_classes)
 	elif args.model == 'wideresnet':
-		model = wideresnet.WideResNet(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, centroids_lambda=args.centroid_smoothing, sm_type=softmax, n_classes=n_classes)
+		model = wideresnet.WideResNet(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax, n_classes=n_classes)
 	
 	print(model.load_state_dict(ckpt['model_state'], strict=False))
 	model.n_classes = args.num_ways
