@@ -65,8 +65,6 @@ if __name__ == '__main__':
 		results.update({'acc_list_sim_sgd':[], 'acc_list_cos_sgd':[], 'acc_list_fus_sgd':[]})
 
 	for i in range(args.num_runs):
-
-		centroids = torch.rand(args.num_ways, emb_size).to(device)
 		
 		train_dataset, test_dataset = task_builder.get_task_loaders()
 

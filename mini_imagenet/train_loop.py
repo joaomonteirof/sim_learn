@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from harvester import AllTripletSelector
 from models.losses import LabelSmoothingLoss
-from utils import compute_eer
+from utils import compute_eer, get_centroids
 from data_load import Loader
 
 class TrainLoop(object):
@@ -51,7 +51,9 @@ class TrainLoop(object):
 			self.disc_label_smoothing = 0.0
 
 		if self.valid_loader is not None:
-			self.history['acc'] = []
+			self.history['acc_sim'] = []
+			self.history['acc_cos'] = []
+			self.history['acc_fus'] = []
 
 		if checkpoint_epoch is not None:
 			self.load_checkpoint(self.save_epoch_fmt.format(checkpoint_epoch))
@@ -110,19 +112,28 @@ class TrainLoop(object):
 
 			if self.valid_loader is not None:
 
-				accuracy = self.valid()
+				accuracies = self.valid()
 
-				self.history['acc'].append(accuracy)
+				self.history['acc_sim'].append(np.mean(accuracies['acc_list_sim']))
+				self.history['acc_cos'].append(np.mean(accuracies['acc_list_cos']))
+				self.history['acc_fus'].append(np.mean(accuracies['acc_list_fus']))
 
 				if self.logger:
-					self.logger.add_scalar('Valid/Acc', self.history['acc'][-1], self.total_iters)
+					self.logger.add_scalar('Valid/ACC SIM', self.history['acc_sim'][-1], self.total_iters)
+					self.logger.add_scalar('Valid/Best ACC SIM', np.max(self.history['acc_sim']), self.total_iters)
+					self.logger.add_scalar('Valid/ACC COS', self.history['acc_cos'][-1], self.total_iters)
+					self.logger.add_scalar('Valid/Best ACC COS', np.max(self.history['acc_cos']), self.total_iters)
+					self.logger.add_scalar('Valid/ACC FUS', self.history['acc_fus'][-1], self.total_iters)
+					self.logger.add_scalar('Valid/Best ACC FUS', np.max(self.history['acc_fus']), self.total_iters)
 
 				if self.verbose>0:
 					print(' ')
 					print('Eval. config:')
 					for el in self.eval_config:
 						print('{}: {}'.format(el, self.eval_config[el]))
-					print('Current ACC, best ACC, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['acc'][-1], np.max(self.history['acc']), 1+np.argmax(self.history['acc'])))
+					print('Current SIM ACC, best SIM ACC, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['acc_sim'][-1], np.max(self.history['acc_sim']), 1+np.argmax(self.history['acc_sim'])))
+					print('Current COS ACC, best COS ACC, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['acc_cos'][-1], np.max(self.history['acc_cos']), 1+np.argmax(self.history['acc_cos'])))
+					print('Current FUS ACC, best FUS ACC, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['acc_fus'][-1], np.max(self.history['acc_fus']), 1+np.argmax(self.history['acc_fus'])))
 
 			if self.verbose>0:
 				print('Current LR: {}'.format(self.optimizer.param_groups[0]['lr']))
@@ -197,13 +208,11 @@ class TrainLoop(object):
 
 		self.model.eval()
 
-		acc_list = []
+		results = {'acc_list_sim':[], 'acc_list_cos':[], 'acc_list_fus':[]}
 
 		with torch.no_grad():
 
 			for i in range(self.eval_config['num_runs']):
-
-				centroids = torch.rand(self.eval_config['num_ways'], self.model.centroids.size(1)).to(self.device)
 				
 				train_dataset, test_dataset = self.valid_loader.get_task_loaders()
 
@@ -211,38 +220,59 @@ class TrainLoop(object):
 
 				dataloader_train = DataLoader(train_dataset, batch_size=self.eval_config['batch_size'], shuffle=True, num_workers=self.eval_config['workers'])
 
-				for j in range(self.eval_config['epochs']):
+				embeddings = []
+				labels = []
+
+				with torch.no_grad():
+
 					for batch in dataloader_train:
 
 						x, y = batch
 
+						if args.cuda:
+							x = x.to(self.device)
+
+						emb = self.model.forward(x).detach()
+
+						embeddings.append(emb)
+						labels.append(y)
+
+					embeddings = torch.cat(embeddings, 0).to(self.device)
+					labels = torch.cat(labels, 0).to(self.device).squeeze(-1)
+
+					centroids, _ = get_centroids(embeddings, labels, self.eval_config['num_ways'])
+
+					### Eval on test split
+
+					correct_sim, correct_cos, correct_fus = 0, 0, 0
+
+					dataloader_test = DataLoader(test_dataset, batch_size=self.eval_config['batch_size'], shuffle=False, num_workers=self.eval_config['workers'])
+
+					for batch in dataloader_test:
+
+						x, y = batch
+
 						x = x.to(self.device)
-						y = y.to(self.device).squeeze()
+						y = y.to(self.device).squeeze(-1)
 
 						embeddings = self.model.forward(x)
-						centroids = self.model.update_centroids_eval(centroids, embeddings, y, update_lambda=self.eval_config['centroid_smoothing'])
 
-				### Eval on test split
+						out_sim = self.model.compute_logits_eval(centroids, embeddings)
+						pred_sim = out_sim.max(1)[1].long()
+						correct_sim += pred_sim.squeeze().eq(y).sum().item()
+						out_cos = self.model.compute_logits_eval(centroids, embeddings, ablation=True)
+						pred_cos = out_cos.max(1)[1].long()
+						correct_cos += pred_cos.squeeze().eq(y).sum().item()
+						out_fus = (F.softmax(out_sim, dim=1)+F.softmax(out_cos, dim=1))*0.5
+						pred_fus = out_fus.max(1)[1].long()
+						correct_fus += pred_fus.squeeze().eq(y).sum().item()
 
-				correct = 0
+					results['acc_list_sim'].append(100.*correct_sim/len(test_dataset))
+					results['acc_list_cos'].append(100.*correct_cos/len(test_dataset))
+					results['acc_list_fus'].append(100.*correct_fus/len(test_dataset))
 
-				dataloader_test = DataLoader(test_dataset, batch_size=self.eval_config['batch_size'], shuffle=False, num_workers=self.eval_config['workers'])
 
-				for batch in dataloader_test:
-
-					x, y = batch
-
-					x = x.to(self.device)
-					y = y.to(self.device).squeeze()
-
-					embeddings = self.model.forward(x)
-					out = self.model.compute_logits_eval(centroids, embeddings)
-					pred = out.max(1)[1].long()
-					correct += pred.squeeze().eq(y).sum().item()
-
-				acc_list.append(100.*correct/len(test_dataset))
-
-		return np.mean(acc_list)
+		return results
 
 	def checkpointing(self):
 
