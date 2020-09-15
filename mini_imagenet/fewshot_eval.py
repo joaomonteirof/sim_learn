@@ -84,7 +84,6 @@ if __name__ == '__main__':
 
 				if args.cuda:
 					x = x.to(device)
-					y = y.to(device).squeeze(0)
 
 				emb = model.forward(x).detach()
 
@@ -92,7 +91,7 @@ if __name__ == '__main__':
 				labels.append(y)
 
 		embeddings = torch.cat(embeddings, 0)
-		labels = torch.cat(labels, 0)
+		labels = torch.cat(labels, 0).to(device)
 
 		centroids = get_centroids(embeddings, labels, args.num_ways)
 
