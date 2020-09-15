@@ -127,11 +127,10 @@ class TrainLoop(object):
 					self.logger.add_scalar('Valid/Best ACC FUS', np.max(self.history['acc_fus']), self.total_iters)
 
 				if self.verbose>0:
-					print(' ')
-					print('Eval. config:')
+					print('\nEval. config:\n')
 					for el in self.eval_config:
 						print('{}: {}'.format(el, self.eval_config[el]))
-					print('Current SIM ACC, best SIM ACC, and epoch: {:0.2f}, {:0.2f}, {}'.format(self.history['acc_sim'][-1], np.max(self.history['acc_sim']), 1+np.argmax(self.history['acc_sim'])))
+					print('\nCurrent SIM ACC, best SIM ACC, and epoch: {:0.2f}, {:0.2f}, {}'.format(self.history['acc_sim'][-1], np.max(self.history['acc_sim']), 1+np.argmax(self.history['acc_sim'])))
 					print('Current COS ACC, best COS ACC, and epoch: {:0.2f}, {:0.2f}, {}'.format(self.history['acc_cos'][-1], np.max(self.history['acc_cos']), 1+np.argmax(self.history['acc_cos'])))
 					print('Current FUS ACC, best FUS ACC, and epoch: {:0.2f}, {:0.2f}, {}\n'.format(self.history['acc_fus'][-1], np.max(self.history['acc_fus']), 1+np.argmax(self.history['acc_fus'])))
 
@@ -151,9 +150,9 @@ class TrainLoop(object):
 
 		if self.valid_loader is not None:
 			if self.verbose>0:
-				print('Best SIM ACC eer and corresponding epoch: {:0.2f}, {}'.format(np.max(self.history['acc_sim']), 1+np.argmax(self.history['acc_sim'])))
+				print('\nBest SIM ACC eer and corresponding epoch: {:0.2f}, {}'.format(np.max(self.history['acc_sim']), 1+np.argmax(self.history['acc_sim'])))
 				print('Best COS ACC eer and corresponding epoch: {:0.2f}, {}'.format(np.max(self.history['acc_cos']), 1+np.argmax(self.history['acc_cos'])))
-				print('Best FUS ACC eer and corresponding epoch: {:0.2f}, {}'.format(np.max(self.history['acc_fus']), 1+np.argmax(self.history['acc_fus'])))
+				print('Best FUS ACC eer and corresponding epoch: {:0.2f}, {}\n'.format(np.max(self.history['acc_fus']), 1+np.argmax(self.history['acc_fus'])))
 
 			return [np.max(self.history['acc'])]
 		else:
