@@ -229,8 +229,7 @@ class TrainLoop(object):
 
 						x, y = batch
 
-						if args.cuda:
-							x = x.to(self.device)
+						x = x.to(self.device)
 
 						emb = self.model.forward(x).detach()
 
