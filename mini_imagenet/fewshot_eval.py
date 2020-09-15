@@ -7,7 +7,6 @@ from torchvision import datasets, transforms
 from data_load import fewshot_eval_builder
 from torchvision import transforms
 from torch.utils.data import DataLoader
-from RandAugment import RandAugment
 from models import resnet, resnet12, wideresnet
 import os
 import sys
@@ -19,17 +18,13 @@ if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser(description='Mini-Imagenet few shot classification evaluation')
 	parser.add_argument('--model', choices=['resnet', 'resnet_12', 'wideresnet'], default='resnet')
-	parser.add_argument('--centroid-smoothing', type=float, default=0.9, metavar='Lamb', help='Moving average parameter for centroids')
 	parser.add_argument('--cp-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
 	parser.add_argument('--data-path', type=str, default='./data/', metavar='Path', help='Path to data')
 	parser.add_argument('--num-shots', type=int, default=5, help='Number of examples per class (default: 5)')
 	parser.add_argument('--num-ways', type=int, default=5, help='Number of classes per task (default: 5)')
 	parser.add_argument('--num-queries', type=int, default=15, help='Number of data points per class on test partition (default: 15)')
 	parser.add_argument('--num-runs', type=int, default=600, help='Number of evaluation runs (default: 600)')
-	parser.add_argument('--epochs', type=int, default=500, metavar='N', help='number of epochs to adapt centroids (default: 500)')
 	parser.add_argument('--sgd-epochs', type=int, default=0, metavar='N', help='number of epochs to adapt centroids with SGD (default: 0)')
-	parser.add_argument('--aug-M', type=int, default=15, metavar='AUGM', help='Augmentation hp. Default is 15')
-	parser.add_argument('--aug-N', type=int, default=1, metavar='AUGN', help='Augmentation hp. Default is 1')
 	parser.add_argument('--batch-size', type=int, default=24, metavar='N', help='batch size(default: 24)')
 	parser.add_argument('--report-every', type=int, default=50, metavar='N', help='Number of runs to wait before reporting current results (default: 50)')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
@@ -37,10 +32,8 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 	args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 
-	transform_train_eval = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=8), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])
-	transform_train_eval.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
-	transform_test = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
-	task_builder = fewshot_eval_builder(hdf5_name=args.data_path, train_transformation=transform_train_eval, test_transformation=transform_test, k_shot=args.num_shots, n_way=args.num_ways, n_queries=args.num_queries)
+	transform = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+	task_builder = fewshot_eval_builder(hdf5_name=args.data_path, train_transformation=transform, test_transformation=transform, k_shot=args.num_shots, n_way=args.num_ways, n_queries=args.num_queries)
 
 
 	ckpt = torch.load(args.cp_path, map_location = lambda storage, loc: storage)
@@ -66,7 +59,9 @@ if __name__ == '__main__':
 
 	model = model.to(device).eval()
 
-	acc_list = []
+	results = {'acc_list_sim':[], 'acc_list_cos':[], 'acc_list_fus':[]}
+	if args.sgd_epochs>0:
+		results.update({'acc_list_sim_sgd':[], 'acc_list_cos_sgd':[], 'acc_list_fus_sgd':[]})
 
 	for i in range(args.num_runs):
 
@@ -78,20 +73,34 @@ if __name__ == '__main__':
 
 		dataloader_train = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
 
+		embeddings = []
+		labels = []
+
+		iterator = tqdm(valid_loader, total=len(valid_loader))
+
 		with torch.no_grad():
 
-			for epoch in range(args.epochs):
-				for batch in dataloader_train:
+			for batch in iterator:
 
-					x, y = batch
+				x, y = batch
+
+				if args.cuda:
 					x = x.to(device)
-					y = y.to(device).squeeze()
+					y = y.to(device)
 
-					embeddings = model.forward(x)
-					centroids = model.update_centroids_eval(centroids, embeddings, y, update_lambda=args.centroid_smoothing)
+				emb = model.forward(x).detach()
+
+				embeddings.append(emb.detach().cpu())
+				labels.append(y)
+
+		embeddings = torch.cat(embeddings, 0)
+		labels = torch.cat(labels, 0)
+
+		centroids = get_centroids(embeddings, y, args.num_ways)
 
 		if args.sgd_epochs>0:
-			optimizer = optim.SGD([centroids], lr=1e-3, momentum=0.9, weight_decay=0.0, nesterov=True)
+			centroids_sgd = centroids.clone()
+			optimizer = optim.SGD([centroids_sgd], lr=1e-3, momentum=0.9, weight_decay=0.0, nesterov=True)
 			for epoch in range(args.sgd_epochs):
 				for batch in dataloader_train:
 
@@ -106,10 +115,13 @@ if __name__ == '__main__':
 					loss = torch.nn.CrossEntropyLoss()(out, y)
 					loss.backward()
 					optimizer.step()
+		else:
+			centroids_sgd = None
 
 		### Eval on test split
 
-		correct = 0
+		correct_sim, correct_cos, correct_fus = 0, 0, 0
+		correct_sim_sgd, correct_cos_sgd, correct_fus_sgd = 0, 0, 0
 
 		dataloader_test = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
 
@@ -123,16 +135,36 @@ if __name__ == '__main__':
 				y = y.to(device).squeeze()
 
 				embeddings = model.forward(x)
-				out = model.compute_logits_eval(centroids, embeddings)
-				pred = out.max(1)[1].long()
-				correct += pred.squeeze().eq(y).sum().item()
 
-		acc_list.append(100.*correct/len(test_dataset))
+				out_sim = model.compute_logits_eval(centroids, embeddings)
+				pred_sim = out_sim.max(1)[1].long()
+				correct_sim += pred_sim.squeeze().eq(y).sum().item()
+				out_cos = model.compute_logits_eval(centroids, embeddings, ablation=True)
+				pred_cos = out_cos.max(1)[1].long()
+				correct_cos += pred_cos.squeeze().eq(y).sum().item()
+				out_fus = (F.softmax(out_sim, dim=1)+F.softmax(out_cos, dim=1))*0.5
+
+				if centroids_sgd is not None:
+					out_sim_sgd = model.compute_logits_eval(centroids_sgd, embeddings)
+					pred_sim_sgd = out_sim_sgd.max(1)[1].long()
+					correct_sim_sgd += pred_sim_sgd.squeeze().eq(y).sum().item()
+					out_cos_sgd = model.compute_logits_eval(centroids_sgd, embeddings, ablation=True)
+					pred_cos_sgd = out_cos_sgd.max(1)[1].long()
+					correct_cos_sgd += pred_cos_sgd.squeeze().eq(y).sum().item()
+					out_fus_sgd = (F.softmax(out_sim_sgd, dim=1)+F.softmax(out_cos_sgd, dim=1))*0.5
+
+		results['acc_list_sim'].append(100.*correct_sim/len(test_dataset))
+		results['acc_list_cos'].append(100.*correct_cos/len(test_dataset))
+		results['acc_list_fus'].append(100.*correct_fus/len(test_dataset))
+
+		if centroids_sgd is not None:
+			results['acc_list_sim_sgd'].append(100.*correct_sim_sgd/len(test_dataset))
+			results['acc_list_cos_sgd'].append(100.*correct_cos_sgd/len(test_dataset))
+			results['acc_list_fus_sgd'].append(100.*correct_fus_sgd/len(test_dataset))
 
 		if i % args.report_every == 0:
-			mean, ci95 = np.mean(acc_list), 1.96 * np.std(acc_list) / np.sqrt(i + 1)
-			print('Accuracy at round {}: {}\t\tAccumulated so far: {:.2f} +- {:.2f}'.format(i+1, acc_list[-1], mean, ci95))
+			print('Accuracy at round {}/{}:\n'.format(i+1,args.num_runs))
+			for el in results:
+				mean, ci95 = np.mean(results[el]), 1.96 * np.std(results[el]) / np.sqrt(i + 1)
+				print('el: {:.2f} +- {:.2f}'.format(mean, ci95))
 
-	mean, ci95 = np.mean(acc_list), 1.96 * np.std(acc_list) / np.sqrt(i + 1)
-
-	print('Accuracy: {:.2f} +- {:.2f}'.format(mean, ci95))
