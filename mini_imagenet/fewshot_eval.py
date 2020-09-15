@@ -106,13 +106,13 @@ if __name__ == '__main__':
 					loss.backward()
 					optimizer.step()
 
-			### Eval on test split
+		### Eval on test split
 
-			correct = 0
+		correct = 0
 
-			dataloader_test = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
+		dataloader_test = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
 
-			with torch.no_grad():
+		with torch.no_grad():
 
 			for batch in dataloader_test:
 
@@ -126,7 +126,7 @@ if __name__ == '__main__':
 				pred = out.max(1)[1].long()
 				correct += pred.squeeze().eq(y).sum().item()
 
-			acc_list.append(100.*correct/len(test_dataset))
-			print('Accuracy at round {}: {}'.format(i, acc_list[-1]))
+		acc_list.append(100.*correct/len(test_dataset))
+		print('Accuracy at round {}: {}'.format(i, acc_list[-1]))
 
 	print('Accuracy: {} +- {}'.format(np.mean(acc_list), np.std(acc_list)))
