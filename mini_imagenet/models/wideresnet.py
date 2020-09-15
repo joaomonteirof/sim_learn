@@ -158,9 +158,9 @@ class WideResNet(nn.Module):
 	def update_centroids_eval(self, centroids, embeddings, targets, update_lambda=None):
 
 			centroids =  centroids.to(embeddings.device)
-			if not update_lambda: update_lambda = self.centroids_lambda
+			if update_lambda is None: update_lambda = self.centroids_lambda
 
-			new_centroids, mask = get_centroids(embeddings, targets, self.n_classes)
+			new_centroids, mask = get_centroids(embeddings, targets, centroids.size(0))
 
 			with torch.no_grad():
 				mask *= 1.-update_lambda
