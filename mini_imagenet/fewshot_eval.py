@@ -91,9 +91,9 @@ if __name__ == '__main__':
 				labels.append(y)
 
 		embeddings = torch.cat(embeddings, 0).to(device)
-		labels = torch.cat(labels, 0).to(device)
+		labels = torch.cat(labels, 0).to(device).squeeze(0)
 
-		centroids = get_centroids(embeddings, labels, args.num_ways)
+		centroids, _ = get_centroids(embeddings, labels, args.num_ways)
 
 		if args.sgd_epochs>0:
 			centroids_sgd = centroids.clone()
