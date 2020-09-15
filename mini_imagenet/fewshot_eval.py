@@ -91,7 +91,7 @@ if __name__ == '__main__':
 				labels.append(y)
 
 		embeddings = torch.cat(embeddings, 0).to(device)
-		labels = torch.cat(labels, 0).to(device).squeeze(0)
+		labels = torch.cat(labels, 0).to(device).squeeze(-1)
 
 		centroids, _ = get_centroids(embeddings, labels, args.num_ways)
 
