@@ -168,5 +168,5 @@ if __name__ == '__main__':
 			print('Accuracy at round {}/{}:\n'.format(i+1,args.num_runs))
 			for el in results:
 				mean, ci95 = np.mean(results[el]), 1.96 * np.std(results[el]) / np.sqrt(i + 1)
-				print('{}: {:.2f} +- {:.2f}'.format(el, mean, ci95))
+				print('{} --- Current ACC: {:.2f} \t Accumulated: {:.2f} +- {:.2f}'.format(el, results[el][-1], mean, ci95))
 

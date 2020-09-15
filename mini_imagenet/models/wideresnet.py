@@ -151,7 +151,7 @@ class WideResNet(nn.Module):
 		emb = emb.repeat(1, self.centroids.size(0), 1)
 
 		if ablation:
-			return -((centroids-emb).pow(2).sum(-1).sqrt()).transpose(1,-1)
+			return F.cosine_similarity(centroids, emb, dim=-1).squeeze(-1).transpose(1,-1)
 		else:
 			return self.forward_bin(centroids, emb).squeeze(-1).transpose(1,-1)
 
@@ -177,6 +177,6 @@ class WideResNet(nn.Module):
 			emb = emb.repeat(1, centroids.size(1), 1)
 
 			if ablation:
-				return -((centroids-emb).pow(2).sum(-1).sqrt()).transpose(1,-1)
+				return F.cosine_similarity(centroids, emb, dim=-1).squeeze(-1).transpose(1,-1)
 			else:
 				return self.forward_bin(centroids, emb).squeeze(-1).transpose(1,-1)
