@@ -67,17 +67,17 @@ if __name__ == '__main__':
 
 	acc_list = []
 
-	with torch.no_grad():
+	for i in range(args.num_runs):
 
-		for i in range(args.num_runs):
+		centroids = torch.rand(args.num_ways, emb_size).to(device)
+		
+		train_dataset, test_dataset = task_builder.get_task_loaders()
 
-			centroids = torch.rand(args.num_ways, emb_size).to(device)
-			
-			train_dataset, test_dataset = task_builder.get_task_loaders()
+		### Use the train split to compute the centroids
 
-			### Use the train split to compute the centroids
+		dataloader_train = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
 
-			dataloader_train = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers)
+		with torch.no_grad():
 
 			for epoch in range(args.epochs):
 				for batch in dataloader_train:
@@ -89,28 +89,30 @@ if __name__ == '__main__':
 					embeddings = model.forward(x)
 					centroids = model.update_centroids_eval(centroids, embeddings, y, update_lambda=args.centroid_smoothing)
 
-			if args.sgd_epochs>0:
-				optimizer = optim.SGD([centroids], lr=1e-3, momentum=0.9, weight_decay=0.0, nesterov=True)
-				for epoch in range(args.sgd_epochs):
-					for batch in dataloader_train:
+		if args.sgd_epochs>0:
+			optimizer = optim.SGD([centroids], lr=1e-3, momentum=0.9, weight_decay=0.0, nesterov=True)
+			for epoch in range(args.sgd_epochs):
+				for batch in dataloader_train:
 
-						optimizer.zero_grad()
+					optimizer.zero_grad()
 
-						x, y = batch
-						x = x.to(device)
-						y = y.to(device).squeeze()
+					x, y = batch
+					x = x.to(device)
+					y = y.to(device).squeeze()
 
-						embeddings = model.forward(x)
-						out = model.compute_logits_eval(centroids, embeddings)
-						loss = torch.nn.CrossEntropyLoss()(out, y)
-						loss.backward()
-						optimizer.step()
+					embeddings = model.forward(x).detach()
+					out = model.compute_logits_eval(centroids, embeddings)
+					loss = torch.nn.CrossEntropyLoss()(out, y)
+					loss.backward()
+					optimizer.step()
 
 			### Eval on test split
 
 			correct = 0
 
 			dataloader_test = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
+
+			with torch.no_grad():
 
 			for batch in dataloader_test:
 
