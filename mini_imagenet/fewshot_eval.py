@@ -127,6 +127,11 @@ if __name__ == '__main__':
 				correct += pred.squeeze().eq(y).sum().item()
 
 		acc_list.append(100.*correct/len(test_dataset))
-		print('Accuracy at round {}: {}'.format(i, acc_list[-1]))
 
-	print('Accuracy: {} +- {}'.format(np.mean(acc_list), np.std(acc_list)))
+		if i % 50 == 0:
+			mean, ci95 = np.mean(acc_list), 1.96 * np.std(acc_list) / np.sqrt(i + 1)
+			print('Accuracy at round {}: {}\t\tAccumulated so far: {:.2f} +- {:.2f}'.format(i+1, acc_list[-1], mean, ci95))
+
+	mean, ci95 = np.mean(acc_list), 1.96 * np.std(acc_list) / np.sqrt(i + 1)
+
+	print('Accuracy: {:.2f} +- {:.2f}'.format(mean, ci95))
