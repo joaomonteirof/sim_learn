@@ -141,6 +141,8 @@ if __name__ == '__main__':
 				pred_cos = out_cos.max(1)[1].long()
 				correct_cos += pred_cos.squeeze().eq(y).sum().item()
 				out_fus = (F.softmax(out_sim, dim=1)+F.softmax(out_cos, dim=1))*0.5
+				pred_fus = out_fus.max(1)[1].long()
+				correct_fus += pred_fus.squeeze().eq(y).sum().item()
 
 				if centroids_sgd is not None:
 					out_sim_sgd = model.compute_logits_eval(centroids_sgd, embeddings)
@@ -150,6 +152,8 @@ if __name__ == '__main__':
 					pred_cos_sgd = out_cos_sgd.max(1)[1].long()
 					correct_cos_sgd += pred_cos_sgd.squeeze().eq(y).sum().item()
 					out_fus_sgd = (F.softmax(out_sim_sgd, dim=1)+F.softmax(out_cos_sgd, dim=1))*0.5
+					pred_fus_sgd = out_fus_sgd.max(1)[1].long()
+					correct_fus_sgd += pred_fus_sgd.squeeze().eq(y).sum().item()
 
 		results['acc_list_sim'].append(100.*correct_sim/len(test_dataset))
 		results['acc_list_cos'].append(100.*correct_cos/len(test_dataset))
