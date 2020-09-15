@@ -87,10 +87,10 @@ if __name__ == '__main__':
 
 				emb = model.forward(x).detach()
 
-				embeddings.append(emb.detach().cpu())
+				embeddings.append(emb)
 				labels.append(y)
 
-		embeddings = torch.cat(embeddings, 0)
+		embeddings = torch.cat(embeddings, 0).to(device)
 		labels = torch.cat(labels, 0).to(device)
 
 		centroids = get_centroids(embeddings, labels, args.num_ways)
