@@ -76,11 +76,9 @@ if __name__ == '__main__':
 		embeddings = []
 		labels = []
 
-		iterator = tqdm(valid_loader, total=len(valid_loader))
-
 		with torch.no_grad():
 
-			for batch in iterator:
+			for batch in dataloader_train:
 
 				x, y = batch
 
