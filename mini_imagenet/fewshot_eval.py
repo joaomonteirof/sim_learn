@@ -2,6 +2,7 @@ from __future__ import print_function
 import argparse
 import torch
 import torch.optim as optim
+import torch.nn.functional as F
 import numpy as np
 from torchvision import datasets, transforms
 from data_load import fewshot_eval_builder
