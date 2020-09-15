@@ -131,9 +131,9 @@ class TrainLoop(object):
 					print('Eval. config:')
 					for el in self.eval_config:
 						print('{}: {}'.format(el, self.eval_config[el]))
-					print('Current SIM ACC, best SIM ACC, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['acc_sim'][-1], np.max(self.history['acc_sim']), 1+np.argmax(self.history['acc_sim'])))
-					print('Current COS ACC, best COS ACC, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['acc_cos'][-1], np.max(self.history['acc_cos']), 1+np.argmax(self.history['acc_cos'])))
-					print('Current FUS ACC, best FUS ACC, and epoch: {:0.4f}, {:0.4f}, {}'.format(self.history['acc_fus'][-1], np.max(self.history['acc_fus']), 1+np.argmax(self.history['acc_fus'])))
+					print('Current SIM ACC, best SIM ACC, and epoch: {:0.2f}, {:0.2f}, {}'.format(self.history['acc_sim'][-1], np.max(self.history['acc_sim']), 1+np.argmax(self.history['acc_sim'])))
+					print('Current COS ACC, best COS ACC, and epoch: {:0.2f}, {:0.2f}, {}'.format(self.history['acc_cos'][-1], np.max(self.history['acc_cos']), 1+np.argmax(self.history['acc_cos'])))
+					print('Current FUS ACC, best FUS ACC, and epoch: {:0.2f}, {:0.2f}, {}\n'.format(self.history['acc_fus'][-1], np.max(self.history['acc_fus']), 1+np.argmax(self.history['acc_fus'])))
 
 			if self.verbose>0:
 				print('Current LR: {}'.format(self.optimizer.param_groups[0]['lr']))
@@ -141,7 +141,7 @@ class TrainLoop(object):
 			self.scheduler.step()
 			self.cur_epoch += 1
 
-			if self.valid_loader is not None and self.save_cp and (self.cur_epoch % save_every == 0 or self.history['acc'][-1] > np.max([-np.inf]+self.history['acc'][:-1])):
+			if self.valid_loader is not None and self.save_cp and (self.cur_epoch % save_every == 0 or self.history['acc_sim'][-1] > np.max([-np.inf]+self.history['acc_sim'][:-1])):
 					self.checkpointing()
 			elif self.save_cp and self.cur_epoch % save_every == 0:
 					self.checkpointing()
@@ -151,7 +151,9 @@ class TrainLoop(object):
 
 		if self.valid_loader is not None:
 			if self.verbose>0:
-				print('Best e2e eer and corresponding epoch: {:0.4f}, {}'.format(np.min(self.history['acc']), 1+np.argmin(self.history['acc'])))
+				print('Best SIM ACC eer and corresponding epoch: {:0.2f}, {}'.format(np.max(self.history['acc_sim']), 1+np.argmax(self.history['acc_sim'])))
+				print('Best COS ACC eer and corresponding epoch: {:0.2f}, {}'.format(np.max(self.history['acc_cos']), 1+np.argmax(self.history['acc_cos'])))
+				print('Best FUS ACC eer and corresponding epoch: {:0.2f}, {}'.format(np.max(self.history['acc_fus']), 1+np.argmax(self.history['acc_fus'])))
 
 			return [np.max(self.history['acc'])]
 		else:
