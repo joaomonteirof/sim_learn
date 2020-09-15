@@ -12,6 +12,7 @@ import numpy as np
 from time import sleep
 import os
 import sys
+from torch.utils.tensorboard import SummaryWriter
 from utils import mean, std, set_np_randomseed, get_freer_gpu, parse_args_for_log, add_noise
 
 # Training settings
@@ -43,6 +44,7 @@ parser.add_argument('--no-cp', action='store_true', default=False, help='Disable
 parser.add_argument('--ablation-sim', action='store_true', default=False, help='Disables similarity learning')
 parser.add_argument('--ablation-ce', action='store_true', default=False, help='Disables auxiliary classification loss')
 parser.add_argument('--verbose', type=int, default=1, metavar='N', help='Verbose is activated if > 0')
+parser.add_argument('--logdir', type=str, default=None, metavar='Path', help='Path for checkpointing')
 ###Validation config
 parser.add_argument('--eval-centroid-smoothing', type=float, default=0.9, metavar='Lamb', help='Moving average parameter for centroids')
 parser.add_argument('--valid-hdf-path', type=str, default=None, metavar='Path', help='Path to valid data stored in hdf. Has priority over valid data path if set')
@@ -99,11 +101,18 @@ if args.cuda:
 	device = get_freer_gpu()
 	model = model.to(device)
 
+if args.logdir:
+	writer = SummaryWriter(log_dir=args.logdir, comment=args.model, purge_step=0 if args.checkpoint_epoch is None else int(args.checkpoint_epoch*len(train_loader)))
+	args_dict = parse_args_for_log(args)
+	writer.add_hparams(hparam_dict=args_dict, metric_dict={'best_acc':0.0})
+else:
+	writer = None
+
 optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.l2, nesterov=True)
 
 trainer = TrainLoop(model, optimizer, train_loader, valid_loader, eval_config=eval_config, max_gnorm=args.max_gnorm, label_smoothing=args.smoothing,
 			verbose=args.verbose, save_cp=(not args.no_cp), checkpoint_path=args.checkpoint_path, checkpoint_epoch=args.checkpoint_epoch, 
-			ablation_sim=args.ablation_sim, ablation_ce=args.ablation_ce, cuda=args.cuda)
+			ablation_sim=args.ablation_sim, ablation_ce=args.ablation_ce, cuda=args.cuda, logger=writer)
 
 if args.verbose >0:
 	args_dict = dict(vars(args))

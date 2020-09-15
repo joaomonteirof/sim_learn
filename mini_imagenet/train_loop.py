@@ -14,7 +14,7 @@ from data_load import Loader
 
 class TrainLoop(object):
 
-	def __init__(self, model, optimizer, train_loader, valid_loader, eval_config, max_gnorm, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True):
+	def __init__(self, model, optimizer, train_loader, valid_loader, eval_config, max_gnorm, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True, logger=None):
 		if checkpoint_path is None:
 			# Save to current directory
 			self.checkpoint_path = os.getcwd()
@@ -40,6 +40,7 @@ class TrainLoop(object):
 		self.verbose = verbose
 		self.save_cp = save_cp
 		self.device = next(self.model.parameters()).device
+		self.logger = logger
 		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'sim_loss': [], 'sim_loss_batch': [], 'bin_loss': [], 'bin_loss_batch': []}
 
 		if label_smoothing>0.0:
@@ -58,6 +59,9 @@ class TrainLoop(object):
 	def train(self, n_epochs=1, save_every=1):
 
 		while (self.cur_epoch < n_epochs):
+
+			if self.logger:
+				self.logger.add_scalar('Info/Epoch', self.cur_epoch, self.total_iters)
 
 			np.random.seed()
 			if isinstance(self.train_loader.dataset, Loader):
@@ -86,6 +90,13 @@ class TrainLoop(object):
 				bin_loss_epoch+=bin_loss
 				self.total_iters += 1
 
+				if self.logger:
+					self.logger.add_scalar('Train/Total train Loss', train_loss, self.total_iters)
+					self.logger.add_scalar('Train/Similarity class. Loss', sim_loss, self.total_iters)
+					self.logger.add_scalar('Train/Cross enropy', ce_loss, self.total_iters)
+					self.logger.add_scalar('Train/Bin. loss', bin_loss, self.total_iters)
+					self.logger.add_scalar('Info/LR', self.optimizer.param_groups[0]['lr'], self.total_iters)
+
 			self.history['train_loss'].append(train_loss_epoch/(t+1))
 			self.history['ce_loss'].append(ce_loss_epoch/(t+1))
 			self.history['sim_loss'].append(sim_loss_epoch/(t+1))
@@ -102,6 +113,9 @@ class TrainLoop(object):
 				accuracy = self.valid()
 
 				self.history['acc'].append(accuracy)
+
+				if self.logger:
+					self.logger.add_scalar('Valid/Acc', self.history['acc'][-1], self.total_iters)
 
 				if self.verbose>0:
 					print(' ')
@@ -170,8 +184,11 @@ class TrainLoop(object):
 
 		loss = ce_loss + sim_loss + loss_bin
 		loss.backward()
-		torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_gnorm)
+		grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_gnorm)
 		self.optimizer.step()
+
+		if self.logger:
+			self.logger.add_scalar('Info/Grad_norm', grad_norm, self.total_iters)
 
 		return loss.item(), 0.0 if self.ablation_ce else ce_loss.item(), sim_loss.item(), loss_bin.item()
 
