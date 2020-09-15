@@ -31,6 +31,7 @@ if __name__ == '__main__':
 	parser.add_argument('--aug-M', type=int, default=15, metavar='AUGM', help='Augmentation hp. Default is 15')
 	parser.add_argument('--aug-N', type=int, default=1, metavar='AUGN', help='Augmentation hp. Default is 1')
 	parser.add_argument('--batch-size', type=int, default=24, metavar='N', help='batch size(default: 24)')
+	parser.add_argument('--report-every', type=int, default=50, metavar='N', help='Number of runs to wait before reporting current results (default: 50)')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
 	parser.add_argument('--workers', type=int, default=4, metavar='N', help='Data load workers (default: 4)')
 	args = parser.parse_args()
@@ -128,7 +129,7 @@ if __name__ == '__main__':
 
 		acc_list.append(100.*correct/len(test_dataset))
 
-		if i % 50 == 0:
+		if i % args.report_every == 0:
 			mean, ci95 = np.mean(acc_list), 1.96 * np.std(acc_list) / np.sqrt(i + 1)
 			print('Accuracy at round {}: {}\t\tAccumulated so far: {:.2f} +- {:.2f}'.format(i+1, acc_list[-1], mean, ci95))
 
