@@ -39,8 +39,8 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 	args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 
- 	if args.sgd_epochs>0:
- 		transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=8), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])
+	if args.sgd_epochs>0:
+		transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=8), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])
 		transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
  	else:
  		transform_train = transform_test
@@ -180,8 +180,13 @@ if __name__ == '__main__':
 			results['acc_list_fus_sgd'].append(100.*correct_fus_sgd/len(test_dataset))
 
 		if i % args.report_every == 0:
-			print('Accuracy at round {}/{}:\n'.format(i+1,args.num_runs))
+			print('\nAccuracy at round {}/{}:\n'.format(i+1,args.num_runs))
 			for el in results:
 				mean, ci95 = np.mean(results[el]), 1.96 * np.std(results[el]) / np.sqrt(i + 1)
 				print('{} --- Current ACC: {:.2f} \t Accumulated: {:.2f} +- {:.2f}'.format(el, results[el][-1], mean, ci95))
+
+	print('\n\nFinal accuracy:\n')
+	for el in results:
+		mean, ci95 = np.mean(results[el]), 1.96 * np.std(results[el]) / np.sqrt(i + 1)
+		print('{} --- Current ACC: {:.2f} \t Accumulated: {:.2f} +- {:.2f}'.format(el, results[el][-1], mean, ci95))
 
