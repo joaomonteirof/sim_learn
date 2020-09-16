@@ -32,7 +32,7 @@ if __name__ == '__main__':
 	parser.add_argument('--workers', type=int, default=4, metavar='N', help='Data load workers (default: 4)')
 	### fine tuning config
 	parser.add_argument('--sgd-epochs', type=int, default=0, metavar='N', help='number of epochs to adapt centroids with SGD (default: 0)')
-	parser.add_argument('--lr', type=float, default=0.001, metavar='LR', help='learning rate (default: 0.001)')
+	parser.add_argument('--lr', type=float, default=0.01, metavar='LR', help='learning rate (default: 0.01)')
 	parser.add_argument('--momentum', type=float, default=0.9, metavar='momentum', help='Momentum (default: 0.9)')
 	parser.add_argument('--aug-M', type=int, default=15, metavar='AUGM', help='Augmentation hp. Default is 15')
 	parser.add_argument('--aug-N', type=int, default=1, metavar='AUGN', help='Augmentation hp. Default is 1')
@@ -78,7 +78,8 @@ if __name__ == '__main__':
 
 	results = {'acc_list_sim':[], 'acc_list_cos':[], 'acc_list_fus':[]}
 	if args.sgd_epochs>0:
-		results.update({'acc_list_sim_sgd':[], 'acc_list_cos_sgd':[], 'acc_list_fus_sgd':[]})
+		results.update({'acc_list_sim_sgdsim':[], 'acc_list_cos_sgdsim':[], 'acc_list_fus_sgdsim':[]})
+		results.update({'acc_list_sim_sgdcos':[], 'acc_list_cos_sgdcos':[], 'acc_list_fus_sgdcos':[]})
 
 	for i in range(args.num_runs):
 		
@@ -111,30 +112,44 @@ if __name__ == '__main__':
 		centroids, _ = get_centroids(embeddings, labels, args.num_ways)
 
 		if args.sgd_epochs>0:
-			centroids_sgd = centroids.clone()
-			centroids_sgd.requires_grad = True
-			optimizer = optim.SGD([centroids_sgd], lr=args.lr, momentum=args.momentum, weight_decay=0.0)
+
+			centroids_sgd_sim, centroids_sgd_cos = centroids.clone(), centroids.clone()
+			centroids_sgd_sim.requires_grad, centroids_sgd_cos.requires_grad = True, True
+			optimizer_sim = optim.SGD([centroids_sgd_sim], lr=args.lr, momentum=args.momentum, weight_decay=0.0)
+			optimizer_cos = optim.SGD([centroids_sgd_cos], lr=args.lr, momentum=args.momentum, weight_decay=0.0)
+
 			for epoch in range(args.sgd_epochs):
 				for batch in dataloader_train:
 
-					optimizer.zero_grad()
+					optimizer_sim.zero_grad()
+					optimizer_cos.zero_grad()
 
 					x, y = batch
 					x = x.to(device)
 					y = y.to(device).squeeze()
 
 					embeddings = model.forward(x).detach()
-					out = model.compute_logits_eval(centroids_sgd, embeddings)
-					loss = torch.nn.CrossEntropyLoss()(out, y)
-					loss.backward()
-					optimizer.step()
+
+					out_sim = model.compute_logits_eval(centroids_sgd_sim, embeddings, ablation=False)
+					out_cos = model.compute_logits_eval(centroids_sgd_cos, embeddings, ablation=True)
+
+					loss_sim = torch.nn.CrossEntropyLoss()(out_sim, y)
+					loss_cos = torch.nn.CrossEntropyLoss()(out_cos, y)
+
+					loss_sim.backward()
+					optimizer_sim.step()
+
+					loss_cos.backward()
+					optimizer_cos.step()
+
 		else:
-			centroids_sgd = None
+			centroids_sgd_sim, centroids_sgd_cos = None, None
 
 		### Eval on test split
 
 		correct_sim, correct_cos, correct_fus = 0, 0, 0
-		correct_sim_sgd, correct_cos_sgd, correct_fus_sgd = 0, 0, 0
+		correct_sim_sgdsim, correct_cos_sgdsim, correct_fus_sgdsim = 0, 0, 0
+		correct_sim_sgdcos, correct_cos_sgdcos, correct_fus_sgdcos = 0, 0, 0
 
 		dataloader_test = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
 
@@ -159,25 +174,41 @@ if __name__ == '__main__':
 				pred_fus = out_fus.max(1)[1].long()
 				correct_fus += pred_fus.squeeze().eq(y).sum().item()
 
-				if centroids_sgd is not None:
-					out_sim_sgd = model.compute_logits_eval(centroids_sgd, embeddings)
+				if centroids_sgd_sim is not None:
+					out_sim_sgd = model.compute_logits_eval(centroids_sgd_sim, embeddings)
 					pred_sim_sgd = out_sim_sgd.max(1)[1].long()
-					correct_sim_sgd += pred_sim_sgd.squeeze().eq(y).sum().item()
-					out_cos_sgd = model.compute_logits_eval(centroids_sgd, embeddings, ablation=True)
+					correct_sim_sgdsim += pred_sim_sgd.squeeze().eq(y).sum().item()
+					out_cos_sgd = model.compute_logits_eval(centroids_sgd_sim, embeddings, ablation=True)
 					pred_cos_sgd = out_cos_sgd.max(1)[1].long()
-					correct_cos_sgd += pred_cos_sgd.squeeze().eq(y).sum().item()
+					correct_cos_sgdsim += pred_cos_sgd.squeeze().eq(y).sum().item()
 					out_fus_sgd = (F.softmax(out_sim_sgd, dim=1)+F.softmax(out_cos_sgd, dim=1))*0.5
 					pred_fus_sgd = out_fus_sgd.max(1)[1].long()
-					correct_fus_sgd += pred_fus_sgd.squeeze().eq(y).sum().item()
+					correct_fus_sgdsim += pred_fus_sgd.squeeze().eq(y).sum().item()
+
+				if centroids_sgd_cos is not None:
+					out_sim_sgd = model.compute_logits_eval(centroids_sgd_cos, embeddings)
+					pred_sim_sgd = out_sim_sgd.max(1)[1].long()
+					correct_sim_sgdcos += pred_sim_sgd.squeeze().eq(y).sum().item()
+					out_cos_sgd = model.compute_logits_eval(centroids_sgd_cos, embeddings, ablation=True)
+					pred_cos_sgd = out_cos_sgd.max(1)[1].long()
+					correct_cos_sgdcos += pred_cos_sgd.squeeze().eq(y).sum().item()
+					out_fus_sgd = (F.softmax(out_sim_sgd, dim=1)+F.softmax(out_cos_sgd, dim=1))*0.5
+					pred_fus_sgd = out_fus_sgd.max(1)[1].long()
+					correct_fus_sgdcos += pred_fus_sgd.squeeze().eq(y).sum().item()
 
 		results['acc_list_sim'].append(100.*correct_sim/len(test_dataset))
 		results['acc_list_cos'].append(100.*correct_cos/len(test_dataset))
 		results['acc_list_fus'].append(100.*correct_fus/len(test_dataset))
 
-		if centroids_sgd is not None:
-			results['acc_list_sim_sgd'].append(100.*correct_sim_sgd/len(test_dataset))
-			results['acc_list_cos_sgd'].append(100.*correct_cos_sgd/len(test_dataset))
-			results['acc_list_fus_sgd'].append(100.*correct_fus_sgd/len(test_dataset))
+		if centroids_sgd_sim is not None:
+			results['acc_list_sim_sgdsim'].append(100.*correct_sim_sgdsim/len(test_dataset))
+			results['acc_list_cos_sgdsim'].append(100.*correct_cos_sgdsim/len(test_dataset))
+			results['acc_list_fus_sgdsim'].append(100.*correct_fus_sgdsim/len(test_dataset))
+
+		if centroids_sgd_cos is not None:
+			results['acc_list_sim_sgdcos'].append(100.*correct_sim_sgdcos/len(test_dataset))
+			results['acc_list_cos_sgdcos'].append(100.*correct_cos_sgdcos/len(test_dataset))
+			results['acc_list_fus_sgdcos'].append(100.*correct_fus_sgdcos/len(test_dataset))
 
 		if i % args.report_every == 0:
 			print('\nAccuracy at round {}/{}:\n'.format(i+1,args.num_runs))
