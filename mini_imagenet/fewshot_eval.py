@@ -96,6 +96,7 @@ if __name__ == '__main__':
 
 		if args.sgd_epochs>0:
 			centroids_sgd = centroids.clone()
+			centroids_sgd.requires_grad = True
 			optimizer = optim.SGD([centroids_sgd], lr=1e-3, momentum=0.9, weight_decay=0.0, nesterov=True)
 			for epoch in range(args.sgd_epochs):
 				for batch in dataloader_train:
