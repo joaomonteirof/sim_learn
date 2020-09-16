@@ -140,7 +140,7 @@ class TrainLoop(object):
 			self.scheduler.step()
 			self.cur_epoch += 1
 
-			if self.valid_loader is not None and self.save_cp and (self.cur_epoch % save_every == 0 or self.history['acc_sim'][-1] > np.max([-np.inf]+self.history['acc_sim'][:-1]) or self.history['acc_cos'][-1] > np.max([-np.inf]+self.history['acc_cos'][:-1]) or self.history['acc_sim'][-1] > np.max([-np.inf]+self.history['acc_sim'][:-1])):
+			if self.valid_loader is not None and self.save_cp and (self.cur_epoch % save_every == 0 or self.history['acc_sim'][-1] > np.max([-np.inf]+self.history['acc_sim'][:-1]) or self.history['acc_cos'][-1] > np.max([-np.inf]+self.history['acc_cos'][:-1]) or self.history['acc_fus'][-1] > np.max([-np.inf]+self.history['acc_fus'][:-1])):
 					self.checkpointing()
 			elif self.save_cp and self.cur_epoch % save_every == 0:
 					self.checkpointing()
