@@ -107,7 +107,7 @@ if __name__ == '__main__':
 					y = y.to(device).squeeze()
 
 					embeddings = model.forward(x).detach()
-					out = model.compute_logits_eval(centroids, embeddings)
+					out = model.compute_logits_eval(centroids_sgd, embeddings)
 					loss = torch.nn.CrossEntropyLoss()(out, y)
 					loss.backward()
 					optimizer.step()
