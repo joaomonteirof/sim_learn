@@ -7,6 +7,7 @@ import numpy as np
 from torchvision import datasets, transforms
 from data_load import fewshot_eval_builder
 from torchvision import transforms
+from RandAugment import RandAugment
 from torch.utils.data import DataLoader
 from models import resnet, resnet12, wideresnet
 import os
@@ -25,23 +26,38 @@ if __name__ == '__main__':
 	parser.add_argument('--num-ways', type=int, default=5, help='Number of classes per task (default: 5)')
 	parser.add_argument('--num-queries', type=int, default=15, help='Number of data points per class on test partition (default: 15)')
 	parser.add_argument('--num-runs', type=int, default=600, help='Number of evaluation runs (default: 600)')
-	parser.add_argument('--sgd-epochs', type=int, default=0, metavar='N', help='number of epochs to adapt centroids with SGD (default: 0)')
 	parser.add_argument('--batch-size', type=int, default=24, metavar='N', help='batch size(default: 24)')
 	parser.add_argument('--report-every', type=int, default=50, metavar='N', help='Number of runs to wait before reporting current results (default: 50)')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
 	parser.add_argument('--workers', type=int, default=4, metavar='N', help='Data load workers (default: 4)')
+	### fine tuning config
+	parser.add_argument('--sgd-epochs', type=int, default=0, metavar='N', help='number of epochs to adapt centroids with SGD (default: 0)')
+	parser.add_argument('--lr', type=float, default=0.001, metavar='LR', help='learning rate (default: 0.001)')
+	parser.add_argument('--momentum', type=float, default=0.9, metavar='momentum', help='Momentum (default: 0.9)')
+	parser.add_argument('--aug-M', type=int, default=15, metavar='AUGM', help='Augmentation hp. Default is 15')
+	parser.add_argument('--aug-N', type=int, default=1, metavar='AUGN', help='Augmentation hp. Default is 1')
 	args = parser.parse_args()
 	args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 
-	transform = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
-	task_builder = fewshot_eval_builder(hdf5_name=args.data_path, train_transformation=transform, test_transformation=transform, k_shot=args.num_shots, n_way=args.num_ways, n_queries=args.num_queries)
+ 	if args.sgd_epochs>0:
+ 		transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=8), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])
+		transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
+ 	else:
+ 		transform_train = transform_test
+
+	transform_test = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+	task_builder = fewshot_eval_builder(hdf5_name=args.data_path, train_transformation=transform_train, test_transformation=transform_test, k_shot=args.num_shots, n_way=args.num_ways, n_queries=args.num_queries)
 
 
 	ckpt = torch.load(args.cp_path, map_location = lambda storage, loc: storage)
 	dropout_prob, n_hidden, hidden_size, softmax, n_classes = ckpt['dropout_prob'], ckpt['n_hidden'], ckpt['hidden_size'], ckpt['sm_type'], ckpt['centroids'].size(0)
 	emb_size = ckpt['centroids'].size(1)
 
-	print('\n', args, '\n')
+	print('\n')
+	args_dict = dict(vars(args))
+	for arg_key in args_dict:
+		print('{}: {}'.format(arg_key, args_dict[arg_key]))
+	print('\n')
 
 	if args.model == 'resnet':
 		model = resnet.ResNet18(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax, n_classes=n_classes)
@@ -97,7 +113,7 @@ if __name__ == '__main__':
 		if args.sgd_epochs>0:
 			centroids_sgd = centroids.clone()
 			centroids_sgd.requires_grad = True
-			optimizer = optim.SGD([centroids_sgd], lr=1e-3, momentum=0.9, weight_decay=0.0, nesterov=True)
+			optimizer = optim.SGD([centroids_sgd], lr=args.lr, momentum=args.momentum, weight_decay=0.0)
 			for epoch in range(args.sgd_epochs):
 				for batch in dataloader_train:
 
