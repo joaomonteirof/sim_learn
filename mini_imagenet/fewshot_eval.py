@@ -42,7 +42,7 @@ if __name__ == '__main__':
 	if args.sgd_epochs>0:
 		transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=8), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])
 		transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
- 	else:
+	else:
  		transform_train = transform_test
 
 	transform_test = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
