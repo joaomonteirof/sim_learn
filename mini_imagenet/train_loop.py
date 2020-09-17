@@ -154,7 +154,7 @@ class TrainLoop(object):
 				print('Best COS ACC eer and corresponding epoch: {:0.2f}, {}'.format(np.max(self.history['acc_cos']), 1+np.argmax(self.history['acc_cos'])))
 				print('Best FUS ACC eer and corresponding epoch: {:0.2f}, {}\n'.format(np.max(self.history['acc_fus']), 1+np.argmax(self.history['acc_fus'])))
 
-			return [np.max(self.history['acc'])]
+			return [np.max(self.history['acc_sim'])]
 		else:
 			return [np.min(self.history['train_loss'])]
 
