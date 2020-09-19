@@ -29,7 +29,7 @@ class TrainLoop(object):
 		self.ablation_ce = ablation_ce
 		self.model = model
 		self.optimizer = optimizer
-		self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[50, 120, 220, 320], gamma=0.1)
+		self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[50, 150, 250, 350], gamma=0.1)
 		self.max_gnorm = max_gnorm
 		self.train_loader = train_loader
 		self.valid_loader = valid_loader
