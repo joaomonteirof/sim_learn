@@ -39,13 +39,15 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 	args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 
+
+	transform_test = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+
 	if args.sgd_epochs>0:
 		transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=8), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])
 		transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
 	else:
  		transform_train = transform_test
 
-	transform_test = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
 	task_builder = fewshot_eval_builder(hdf5_name=args.data_path, train_transformation=transform_train, test_transformation=transform_test, k_shot=args.num_shots, n_way=args.num_ways, n_queries=args.num_queries)
 
 
