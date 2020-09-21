@@ -42,13 +42,8 @@ if __name__ == '__main__':
 
 	transform_test = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
 
-	if args.sgd_epochs>0:
-		transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=8), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize(mean=mean, std=std)])
-		transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
-	else:
- 		transform_train = transform_test
-
-	task_builder = fewshot_eval_builder(hdf5_name=args.data_path, train_transformation=transform_train, test_transformation=transform_test, k_shot=args.num_shots, n_way=args.num_ways, n_queries=args.num_queries)
+	## transfor is set to trasnform_test here for both case and the train one is updated only when fine tuning is performed
+	task_builder = fewshot_eval_builder(hdf5_name=args.data_path, train_transformation=transform_test, test_transformation=transform_test, k_shot=args.num_shots, n_way=args.num_ways, n_queries=args.num_queries)
 
 
 	ckpt = torch.load(args.cp_path, map_location = lambda storage, loc: storage)
@@ -114,6 +109,11 @@ if __name__ == '__main__':
 		centroids, _ = get_centroids(embeddings, labels, args.num_ways)
 
 		if args.sgd_epochs>0:
+
+			transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+			transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
+
+			task_builder.train_transformation = transform_train
 
 			centroids_sgd_sim, centroids_sgd_cos = centroids.clone(), centroids.clone()
 			centroids_sgd_sim.requires_grad, centroids_sgd_cos.requires_grad = True, True
