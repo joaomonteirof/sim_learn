@@ -123,17 +123,17 @@ class TrainLoop(object):
 					self.logger.add_scalar('Valid/ACC SIM', self.history['acc_sim'][-1], self.total_iters)
 					self.logger.add_scalar('Valid/CI ACC SIM', 1.96 * np.std(accuracies['acc_list_sim']) / np.sqrt(len(accuracies['acc_list_sim'])), self.total_iters)
 					self.logger.add_scalar('Valid/Best ACC SIM', np.max(self.history['acc_sim']), self.total_iters)
-					self.logger.add_histogram('Valid/SIM ACC', values=accuracies['acc_list_sim'], global_step=self.total_iters)
+					self.logger.add_histogram('Valid/SIM ACC', values=np.array(accuracies['acc_list_sim']), global_step=self.total_iters)
 					### COS block
 					self.logger.add_scalar('Valid/ACC COS', self.history['acc_cos'][-1], self.total_iters)
 					self.logger.add_scalar('Valid/CI ACC COS', 1.96 * np.std(accuracies['acc_list_cos']) / np.sqrt(len(accuracies['acc_list_cos'])), self.total_iters)
 					self.logger.add_scalar('Valid/Best ACC COS', np.max(self.history['acc_cos']), self.total_iters)
-					self.logger.add_histogram('Valid/COS ACC', values=accuracies['acc_list_cos'], global_step=self.total_iters)
+					self.logger.add_histogram('Valid/COS ACC', values=np.array(accuracies['acc_list_cos']), global_step=self.total_iters)
 					### FUS block
 					self.logger.add_scalar('Valid/ACC FUS', self.history['acc_fus'][-1], self.total_iters)
 					self.logger.add_scalar('Valid/CI ACC FUS', 1.96 * np.std(accuracies['acc_list_fus']) / np.sqrt(len(accuracies['acc_list_fus'])), self.total_iters)
 					self.logger.add_scalar('Valid/Best ACC FUS', np.max(self.history['acc_fus']), self.total_iters)
-					self.logger.add_histogram('Valid/FUS ACC', values=accuracies['acc_list_fus'], global_step=self.total_iters)
+					self.logger.add_histogram('Valid/FUS ACC', values=np.array(accuracies['acc_list_fus']), global_step=self.total_iters)
 
 				if self.verbose>0:
 					print('\nEval. config:\n')
