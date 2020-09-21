@@ -40,11 +40,12 @@ if __name__ == '__main__':
 	args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 
 
+	transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+	transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
 	transform_test = transforms.Compose([transforms.ToPILImage(), transforms.CenterCrop(84), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
 
 	## transfor is set to trasnform_test here for both case and the train one is updated only when fine tuning is performed
 	task_builder = fewshot_eval_builder(hdf5_name=args.data_path, train_transformation=transform_test, test_transformation=transform_test, k_shot=args.num_shots, n_way=args.num_ways, n_queries=args.num_queries)
-
 
 	ckpt = torch.load(args.cp_path, map_location = lambda storage, loc: storage)
 	dropout_prob, n_hidden, hidden_size, softmax, n_classes = ckpt['dropout_prob'], ckpt['n_hidden'], ckpt['hidden_size'], ckpt['sm_type'], ckpt['centroids'].size(0)
@@ -110,9 +111,6 @@ if __name__ == '__main__':
 
 		if args.sgd_epochs>0:
 
-			transform_train = transforms.Compose([transforms.ToPILImage(), transforms.RandomCrop(84, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
-			transform_train.transforms.insert(1, RandAugment(args.aug_N, args.aug_M))
-
 			task_builder.train_transformation = transform_train
 
 			centroids_sgd_sim, centroids_sgd_cos = centroids.clone(), centroids.clone()
@@ -143,6 +141,8 @@ if __name__ == '__main__':
 
 					loss_cos.backward()
 					optimizer_cos.step()
+
+			task_builder.train_transformation = transform_test
 
 		else:
 			centroids_sgd_sim, centroids_sgd_cos = None, None
