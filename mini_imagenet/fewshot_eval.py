@@ -220,6 +220,6 @@ if __name__ == '__main__':
 
 	print('\n\nFinal accuracy:\n')
 	for el in results:
-		mean, ci95 = np.mean(results[el]), 1.96 * np.std(results[el]) / np.sqrt(i + 1)
+		mean, ci95 = np.mean(results[el]), 1.96 * np.std(results[el]) / np.sqrt(len(results[el]))
 		print('{} --- Current ACC: {:.2f} \t Accumulated: {:.2f} +- {:.2f}'.format(el, results[el][-1], mean, ci95))
 
