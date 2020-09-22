@@ -122,11 +122,11 @@ if __name__ == '__main__':
 
 		def dist_metric_sim(a,b):
 			a, b = torch.Tensor(a).float().to(device).unsqueeze(0), torch.Tensor(a).float().to(device).unsqueeze(0)
-			return -model.forward_bin(a,b).squeeze().item()
+			return -model.forward_bin(a,b).squeeze().cpu().item()
 
 		def dist_metric_cos(a,b):
 			a, b = torch.Tensor(a).float().to(device).unsqueeze(0), torch.Tensor(a).float().to(device).unsqueeze(0)
-			return -F.cosine_similarity(a,b).squeeze().item()
+			return -F.cosine_similarity(a,b).squeeze().cpu().item()
 
 		neigh_sim = KNeighborsClassifier(n_neighbors=args.num_shots//2+1, metric=dist_metric_sim)
 		neigh_sim.fit(embeddings_train, labels_train)
