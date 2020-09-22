@@ -130,7 +130,7 @@ if __name__ == '__main__':
 
 					embeddings = model.forward(x).detach()
 
-					out_sim = model.compute_logits_eval(centroids_sgd_sim, embeddings, ablation=False)
+					out_sim = torch.sigmoid(model.compute_logits_eval(centroids_sgd_sim, embeddings, ablation=False))
 					out_cos = model.compute_logits_eval(centroids_sgd_cos, embeddings, ablation=True)
 
 					loss_sim = torch.nn.CrossEntropyLoss()(out_sim, y)
@@ -166,7 +166,7 @@ if __name__ == '__main__':
 
 				embeddings = model.forward(x)
 
-				out_sim = model.compute_logits_eval(centroids, embeddings)
+				out_sim = torch.sigmoid(model.compute_logits_eval(centroids, embeddings))
 				pred_sim = out_sim.max(1)[1].long()
 				correct_sim += pred_sim.squeeze().eq(y).sum().item()
 				out_cos = model.compute_logits_eval(centroids, embeddings, ablation=True)
