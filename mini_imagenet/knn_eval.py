@@ -122,7 +122,7 @@ if __name__ == '__main__':
 
 		def dist_metric_sim(a,b):
 			a, b = torch.Tensor(a).float().to(device).unsqueeze(0), torch.Tensor(b).float().to(device).unsqueeze(0)
-			return (1.-torch.Sigmoid(model.forward_bin(a,b))).squeeze().cpu()
+			return (1.-torch.sigmoid(model.forward_bin(a,b))).squeeze().cpu()
 
 		def dist_metric_cos(a,b):
 			a, b = torch.Tensor(a).float(), torch.Tensor(b).float()
