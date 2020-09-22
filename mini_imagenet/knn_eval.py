@@ -130,7 +130,7 @@ if __name__ == '__main__':
 
 		def dist_metric_fus(a,b):
 			a, b = torch.Tensor(a).float(), torch.Tensor(b).float()
-			sim_cos = ((1.-torch.Sigmoid(model.forward_bin(a,b))).squeeze().cpu() + -0.5*(1+F.cosine_similarity(a,b,dim=0).squeeze().cpu()))*0.5
+			sim_cos = ((1.-torch.sigmoid(model.forward_bin(a,b))).squeeze().cpu() + -0.5*(1+F.cosine_similarity(a,b,dim=0).squeeze().cpu()))*0.5
 			return sim_cos
 
 		neigh_sim = KNeighborsClassifier(n_neighbors=args.num_shots//2+1, metric=dist_metric_sim, algorithm='brute')
