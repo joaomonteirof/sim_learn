@@ -122,17 +122,17 @@ if __name__ == '__main__':
 
 		def dist_metric_sim(a,b):
 			a, b = torch.Tensor(a).float().to(device).unsqueeze(0), torch.Tensor(b).float().to(device).unsqueeze(0)
-			return -model.forward_bin(a,b).squeeze().cpu().item()
+			return -model.forward_bin(a,b).squeeze().cpu()
 
 		def dist_metric_cos(a,b):
-			a, b = torch.Tensor(a).float().to(device).unsqueeze(0), torch.Tensor(b).float().to(device).unsqueeze(0)
-			return -F.cosine_similarity(a,b).squeeze().cpu().item()
+			a, b = torch.Tensor(a).float().to(device), torch.Tensor(b).float().to(device)
+			return -F.cosine_similarity(a,b).squeeze().cpu()
 
-		neigh_sim = KNeighborsClassifier(n_neighbors=args.num_shots//2+1, metric=dist_metric_sim)
+		neigh_sim = KNeighborsClassifier(n_neighbors=args.num_shots//2+1, metric=dist_metric_sim, algorithm='brute')
 		neigh_sim.fit(embeddings_train, labels_train)
 		pred_sim = torch.Tensor(neigh_sim.predict(embeddings_test)).long()
 
-		neigh_cos = KNeighborsClassifier(n_neighbors=args.num_shots//2+1, metric=dist_metric_cos)
+		neigh_cos = KNeighborsClassifier(n_neighbors=args.num_shots//2+1, metric=dist_metric_cos, algorithm='brute')
 		neigh_cos.fit(embeddings_train, labels_train)
 		pred_cos = torch.Tensor(neigh_cos.predict(embeddings_test)).long()
 
