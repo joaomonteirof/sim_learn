@@ -40,7 +40,10 @@ class TrainLoop(object):
 		self.device = next(self.model.parameters()).device
 		self.logger = logger
 		self.history = {'train_loss': [], 'train_loss_batch': [], 'ce_loss': [], 'ce_loss_batch': [], 'sim_loss': [], 'sim_loss_batch': [], 'bin_loss': [], 'bin_loss_batch': []}
-		self.best_r_at_3 = -np.inf
+		self.k_list = [1, 2, 4, 8]
+		self.best_r_at_k = [-np.inf for el in self.k_list]
+		self.best_r_at_k_epoch = [-1 for el in self.k_list]
+		self.best_r_at_k_iteration = [-1 for el in self.k_list]
 
 		if label_smoothing>0.0:
 			self.ce_criterion = LabelSmoothingLoss(label_smoothing, lbl_set_size=self.model.n_classes)
@@ -50,7 +53,9 @@ class TrainLoop(object):
 			self.disc_label_smoothing = 0.0
 
 		if self.valid_loader is not None:
-			self.history['r@3'] = []
+			
+			for el in self.k_list:
+				self.history['r@{}'.format(k)] = []
 
 		if checkpoint_epoch is not None:
 			self.load_checkpoint(self.save_epoch_fmt.format(checkpoint_epoch))
@@ -101,7 +106,7 @@ class TrainLoop(object):
 
 				if self.total_iters % eval_every == 0:
 					self.evaluate()
-					if self.save_cp and self.history['r@3'][-1] > np.max([-np.inf]+self.history['r@3'][:-1]):
+					if self.save_cp and self.history['r@{}'.format(self.k_list[0])][-1] > np.max([-np.inf]+self.history['r@{}'.format(self.k_list[0])][:-1]):
 							self.checkpointing()
 							self.save_epoch_cp = True
 
@@ -126,7 +131,7 @@ class TrainLoop(object):
 			print('Training done!')
 
 		if self.valid_loader is not None:
-			return [np.max(self.history['r@3'])]
+			return [np.max(self.history['r@{}'.format(self.k_list[0])])]
 		else:
 			return [np.min(self.history['train_loss'])]
 
@@ -179,7 +184,7 @@ class TrainLoop(object):
 	def valid(self):
 
 		self.model.eval()
-		r_at_3_e2e = 0
+		r_at_k_e2e = [0 for el in self.k_list]
 		embeddings = []
 		labels = []
 
@@ -217,16 +222,16 @@ class TrainLoop(object):
 
 					e2e_scores[j+l] = dist_e2e[l].item()
 
-			_, topk_e2e_idx = torch.topk(torch.Tensor(e2e_scores), 3+1) ## k+1
+			for n, el in enumerate(self.k_list):
 
-			sorted_e2e_classes = labels[topk_e2e_idx]
+				_, topk_e2e_idx = torch.topk(torch.Tensor(e2e_scores), el+1) ## k+1
 
-			if label in sorted_e2e_classes[:3]:
-				r_at_3_e2e+=1
+				sorted_e2e_classes = labels[topk_e2e_idx]
 
-		r_at_3_e2e/=len(labels)
+				if label in sorted_e2e_classes[:el]:
+					r_at_k_e2e[n]+=1
 
-		return r_at_3_e2e
+		return [r/=len(labels) for r in r_at_k_e2e]
 
 
 
@@ -235,22 +240,29 @@ class TrainLoop(object):
 		if self.verbose>0:
 			print('\nIteration {} - Epoch {}'.format(self.total_iters, self.cur_epoch))
 
-		r_at_3 = self.valid()
+		r_at_k = self.valid()
 
-		self.history['r@3'].append(r_at_3)
+		for i, el in enumerate(self.k_list):
 
-		if self.history['r@3'][-1]>self.best_r_at_3:
-			self.best_r_at_3 = self.history['r@3'][-1]
-			self.best_r_at_3_epoch = self.cur_epoch
-			self.best_r_at_3_iteration = self.total_iters
+			curr_r_at_k = 'r@{}'.format(el)
+
+			self.history[curr_r_at_k].append(r_at_k[i])
+
+			if self.history[curr_r_at_k][-1]>self.best_r_at_k[i]:
+				self.best_r_at_k[i] = self.history[curr_r_at_k][-1]
+				self.best_r_at_k_epoch[i] = self.cur_epoch
+				self.best_r_at_k_iteration[i] = self.total_iters
+
+			if self.logger:
+				self.logger.add_scalar('Valid/{}'.format(curr_r_at_k), self.history[curr_r_at_k][-1], self.total_iters)
+				self.logger.add_scalar('Valid/Best {}'.format(curr_r_at_k), np.max(self.history[curr_r_at_k]), self.total_iters)
+				self.logger.add_embedding(mat=self.model.centroids.detach().cpu().numpy(), metadata=np.arange(self.model.centroids.size(0)), global_step=self.total_iters)
+
+			if self.verbose>0:
+				print('\nCurrent {}, best {}, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(curr_r_at_k, curr_r_at_k, self.history[curr_r_at_k][-1], np.max(self.history[curr_r_at_k]), self.best_r_at_3_epoch, self.best_r_at_3_iteration))
 
 		if self.logger:
-			self.logger.add_scalar('Valid/r@3', self.history['r@3'][-1], self.total_iters)
-			self.logger.add_scalar('Valid/Best r@3', np.max(self.history['r@3']), self.total_iters)
 			self.logger.add_embedding(mat=self.model.centroids.detach().cpu().numpy(), metadata=np.arange(self.model.centroids.size(0)), global_step=self.total_iters)
-
-		if self.verbose>0:
-			print('\nCurrent r@3, best r@3, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(self.history['r@3'][-1], np.max(self.history['r@3']), self.best_r_at_3_epoch, self.best_r_at_3_iteration))
 
 	def checkpointing(self):
 
