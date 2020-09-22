@@ -55,7 +55,7 @@ class TrainLoop(object):
 		if self.valid_loader is not None:
 			
 			for el in self.k_list:
-				self.history['r@{}'.format(k)] = []
+				self.history['r@{}'.format(el)] = []
 
 		if checkpoint_epoch is not None:
 			self.load_checkpoint(self.save_epoch_fmt.format(checkpoint_epoch))
@@ -231,7 +231,7 @@ class TrainLoop(object):
 				if label in sorted_e2e_classes[:el]:
 					r_at_k_e2e[n]+=1
 
-		return [r/=len(labels) for r in r_at_k_e2e]
+		return [r/len(labels) for r in r_at_k_e2e]
 
 
 
@@ -259,7 +259,7 @@ class TrainLoop(object):
 				self.logger.add_embedding(mat=self.model.centroids.detach().cpu().numpy(), metadata=np.arange(self.model.centroids.size(0)), global_step=self.total_iters)
 
 			if self.verbose>0:
-				print('\nCurrent {}, best {}, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(curr_r_at_k, curr_r_at_k, self.history[curr_r_at_k][-1], np.max(self.history[curr_r_at_k]), self.best_r_at_3_epoch, self.best_r_at_3_iteration))
+				print('\nCurrent {}, best {}, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(curr_r_at_k, curr_r_at_k, self.history[curr_r_at_k][-1], np.max(self.history[curr_r_at_k]), self.best_r_at_k_epoch[i], self.best_r_at_k_iteration[i]))
 
 		if self.logger:
 			self.logger.add_embedding(mat=self.model.centroids.detach().cpu().numpy(), metadata=np.arange(self.model.centroids.size(0)), global_step=self.total_iters)
