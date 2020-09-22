@@ -162,7 +162,7 @@ if __name__ == '__main__':
 					correct_sim_finetune += pred_sim_finetune.squeeze().eq(y).sum().item()
 					out_cos_finetune = model.compute_logits_eval(centroids_finetune, embeddings, ablation=True)
 					pred_cos_finetune = out_cos_finetune.max(1)[1].long()
-					correct_cos_finetune += pred_cos_sgd.squeeze().eq(y).sum().item()
+					correct_cos_finetune += pred_cos_finetune.squeeze().eq(y).sum().item()
 					out_fus_finetune = (F.softmax(out_sim_finetune, dim=1)+F.softmax(out_cos_finetune, dim=1))*0.5
 					pred_fus_finetune = out_fus_finetune.max(1)[1].long()
 					correct_fus_finetune += pred_fus_finetune.squeeze().eq(y).sum().item()
