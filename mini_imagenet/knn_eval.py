@@ -86,13 +86,13 @@ if __name__ == '__main__':
 				if args.cuda:
 					x = x.to(device)
 
-				emb = model.forward(x).detach()
+				emb = model.forward(x).detach().cpu()
 
 				embeddings_train.append(emb)
 				labels_train.append(y)
 
-		embeddings_train = torch.cat(embeddings_train, 0).to(device)
-		labels_train = torch.cat(labels_train, 0).to(device).squeeze(-1)
+		embeddings_train = torch.cat(embeddings_train, 0).cpu()
+		labels_train = torch.cat(labels_train, 0).squeeze(-1)
 
 		### Eval on test split
 
@@ -112,12 +112,12 @@ if __name__ == '__main__':
 				if args.cuda:
 					x = x.to(device)
 
-				emb = model.forward(x).detach()
+				emb = model.forward(x).detach().cpu()
 
 				embeddings_test.append(emb)
 				labels_test.append(y)
 
-		embeddings_test = torch.cat(embeddings_test, 0).to(device)
+		embeddings_test = torch.cat(embeddings_test, 0).cpu()
 		labels_test = torch.cat(labels_test, 0).to(device).squeeze(-1)
 
 		def dist_metric_sim(a,b):
