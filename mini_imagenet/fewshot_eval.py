@@ -121,7 +121,7 @@ if __name__ == '__main__':
 
 					embeddings = model.forward(x).detach()
 
-					centroids_finetune = model.update_centroids_eval(centroids=centroids_finetune, embeddings=embeddings, targets=y, update_lambda=args.centroid_smoothing):
+					centroids_finetune = model.update_centroids_eval(centroids=centroids_finetune, embeddings=embeddings, targets=y, update_lambda=args.centroid_smoothing)
 
 			task_builder.train_transformation = transform_test
 
