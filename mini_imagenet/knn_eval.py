@@ -118,15 +118,15 @@ if __name__ == '__main__':
 				labels_test.append(y)
 
 		embeddings_test = torch.cat(embeddings_test, 0).cpu().numpy()
-		labels_test = torch.cat(labels_test, 0).to(device).squeeze(-1).cpu().numpy()
+		labels_test = torch.cat(labels_test, 0).to(device).squeeze(-1).cpu()
 
 		def dist_metric_sim(a,b):
 			a, b = torch.Tensor(a).float().to(device).unsqueeze(0), torch.Tensor(b).float().to(device).unsqueeze(0)
 			return -model.forward_bin(a,b).squeeze().cpu()
 
 		def dist_metric_cos(a,b):
-			a, b = torch.Tensor(a).float().to(device), torch.Tensor(b).float().to(device)
-			return -F.cosine_similarity(a,b).squeeze().cpu()
+			a, b = torch.Tensor(a).float(), torch.Tensor(b).float()
+			return -F.cosine_similarity(a,b,dim=0).squeeze()
 
 		neigh_sim = KNeighborsClassifier(n_neighbors=args.num_shots//2+1, metric=dist_metric_sim, algorithm='brute')
 		neigh_sim.fit(embeddings_train, labels_train)
