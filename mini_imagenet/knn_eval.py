@@ -91,8 +91,8 @@ if __name__ == '__main__':
 				embeddings_train.append(emb)
 				labels_train.append(y)
 
-		embeddings_train = torch.cat(embeddings_train, 0).cpu()
-		labels_train = torch.cat(labels_train, 0).squeeze(-1)
+		embeddings_train = torch.cat(embeddings_train, 0).cpu().numpy()
+		labels_train = torch.cat(labels_train, 0).squeeze(-1).cpu().numpy()
 
 		### Eval on test split
 
@@ -117,15 +117,15 @@ if __name__ == '__main__':
 				embeddings_test.append(emb)
 				labels_test.append(y)
 
-		embeddings_test = torch.cat(embeddings_test, 0).cpu()
-		labels_test = torch.cat(labels_test, 0).to(device).squeeze(-1)
+		embeddings_test = torch.cat(embeddings_test, 0).cpu().numpy()
+		labels_test = torch.cat(labels_test, 0).to(device).squeeze(-1).cpu().numpy()
 
 		def dist_metric_sim(a,b):
-			a, b = torch.Tensor(a).float().to(device).unsqueeze(0), torch.Tensor(a).float().to(device).unsqueeze(0)
+			a, b = torch.Tensor(a).float().to(device).unsqueeze(0), torch.Tensor(b).float().to(device).unsqueeze(0)
 			return -model.forward_bin(a,b).squeeze().cpu().item()
 
 		def dist_metric_cos(a,b):
-			a, b = torch.Tensor(a).float().to(device).unsqueeze(0), torch.Tensor(a).float().to(device).unsqueeze(0)
+			a, b = torch.Tensor(a).float().to(device).unsqueeze(0), torch.Tensor(b).float().to(device).unsqueeze(0)
 			return -F.cosine_similarity(a,b).squeeze().cpu().item()
 
 		neigh_sim = KNeighborsClassifier(n_neighbors=args.num_shots//2+1, metric=dist_metric_sim)
@@ -136,8 +136,8 @@ if __name__ == '__main__':
 		neigh_cos.fit(embeddings_train, labels_train)
 		pred_cos = torch.Tensor(neigh_cos.predict(embeddings_test)).long()
 
-		results['acc_list_sim'].append(100.*pred_sim.squeeze().eq(labels_test).sum().item()/labels_test.size(0))
-		results['acc_list_cos'].append(100.*pred_cos.squeeze().eq(labels_test).sum().item()/labels_test.size(0))
+		results['acc_list_sim'].append(100.*pred_sim.eq(labels_test).sum().item()/labels_test.size(0))
+		results['acc_list_cos'].append(100.*pred_cos.eq(labels_test).sum().item()/labels_test.size(0))
 
 		if i % args.report_every == 0:
 			print('\nAccuracy at round {}/{}:\n'.format(i+1,args.num_runs))
