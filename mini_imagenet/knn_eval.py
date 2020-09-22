@@ -64,7 +64,7 @@ if __name__ == '__main__':
 
 	model = model.to(device).eval()
 
-	results = {'acc_list_sim':[], 'acc_list_cos':[]}
+	results = {'acc_list_sim':[], 'acc_list_cos':[], 'acc_list_fus':[]}
 
 	for i in range(args.num_runs):
 		
@@ -122,11 +122,16 @@ if __name__ == '__main__':
 
 		def dist_metric_sim(a,b):
 			a, b = torch.Tensor(a).float().to(device).unsqueeze(0), torch.Tensor(b).float().to(device).unsqueeze(0)
-			return -model.forward_bin(a,b).squeeze().cpu()
+			return (1.-torch.Sigmoid(model.forward_bin(a,b))).squeeze().cpu()
 
 		def dist_metric_cos(a,b):
 			a, b = torch.Tensor(a).float(), torch.Tensor(b).float()
 			return -F.cosine_similarity(a,b,dim=0).squeeze()
+
+		def dist_metric_fus(a,b):
+			a, b = torch.Tensor(a).float(), torch.Tensor(b).float()
+			sim_cos = ((1.-torch.Sigmoid(model.forward_bin(a,b))).squeeze().cpu() + -0.5*(1+F.cosine_similarity(a,b,dim=0).squeeze().cpu()))*0.5
+			return sim_cos
 
 		neigh_sim = KNeighborsClassifier(n_neighbors=args.num_shots//2+1, metric=dist_metric_sim, algorithm='brute')
 		neigh_sim.fit(embeddings_train, labels_train)
@@ -136,8 +141,13 @@ if __name__ == '__main__':
 		neigh_cos.fit(embeddings_train, labels_train)
 		pred_cos = torch.Tensor(neigh_cos.predict(embeddings_test)).long()
 
+		neigh_fus = KNeighborsClassifier(n_neighbors=args.num_shots//2+1, metric=dist_metric_fus, algorithm='brute')
+		neigh_fus.fit(embeddings_train, labels_train)
+		pred_fus = torch.Tensor(neigh_fus.predict(embeddings_test)).long()
+
 		results['acc_list_sim'].append(100.*pred_sim.eq(labels_test).sum().item()/labels_test.size(0))
 		results['acc_list_cos'].append(100.*pred_cos.eq(labels_test).sum().item()/labels_test.size(0))
+		results['acc_list_fus'].append(100.*pred_fus.eq(labels_test).sum().item()/labels_test.size(0))
 
 		if i % args.report_every == 0:
 			print('\nAccuracy at round {}/{}:\n'.format(i+1,args.num_runs))
