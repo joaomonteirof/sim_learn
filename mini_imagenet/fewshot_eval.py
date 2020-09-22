@@ -1,7 +1,6 @@
 from __future__ import print_function
 import argparse
 import torch
-import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
 from torchvision import datasets, transforms
@@ -31,9 +30,8 @@ if __name__ == '__main__':
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
 	parser.add_argument('--workers', type=int, default=4, metavar='N', help='Data load workers (default: 4)')
 	### fine tuning config
-	parser.add_argument('--sgd-epochs', type=int, default=0, metavar='N', help='number of epochs to adapt centroids with SGD (default: 0)')
-	parser.add_argument('--lr', type=float, default=0.01, metavar='LR', help='learning rate (default: 0.01)')
-	parser.add_argument('--momentum', type=float, default=0.9, metavar='momentum', help='Momentum (default: 0.9)')
+	parser.add_argument('--finetune-epochs', type=int, default=0, metavar='N', help='number of epochs to adapt centroids (default: 0)')
+	parser.add_argument('--centroid-smoothing', type=float, default=0.9, metavar='Lamb', help='Moving average parameter for centroids')
 	parser.add_argument('--aug-M', type=int, default=15, metavar='AUGM', help='Augmentation hp. Default is 15')
 	parser.add_argument('--aug-N', type=int, default=1, metavar='AUGN', help='Augmentation hp. Default is 1')
 	args = parser.parse_args()
@@ -75,9 +73,8 @@ if __name__ == '__main__':
 	model = model.to(device).eval()
 
 	results = {'acc_list_sim':[], 'acc_list_cos':[], 'acc_list_fus':[]}
-	if args.sgd_epochs>0:
-		results.update({'acc_list_sim_sgdsim':[], 'acc_list_cos_sgdsim':[], 'acc_list_fus_sgdsim':[]})
-		results.update({'acc_list_sim_sgdcos':[], 'acc_list_cos_sgdcos':[], 'acc_list_fus_sgdcos':[]})
+	if args.finetune_epochs>0:
+		results.update({'acc_list_sim_finetune':[], 'acc_list_cos_finetune':[], 'acc_list_fus_finetune':[]})
 
 	for i in range(args.num_runs):
 		
@@ -109,20 +106,14 @@ if __name__ == '__main__':
 
 		centroids, _ = get_centroids(embeddings, labels, args.num_ways)
 
-		if args.sgd_epochs>0:
+		if args.finetune_epochs>0:
 
 			task_builder.train_transformation = transform_train
 
-			centroids_sgd_sim, centroids_sgd_cos = centroids.clone(), centroids.clone()
-			centroids_sgd_sim.requires_grad, centroids_sgd_cos.requires_grad = True, True
-			optimizer_sim = optim.SGD([centroids_sgd_sim], lr=args.lr, momentum=args.momentum, weight_decay=0.0)
-			optimizer_cos = optim.SGD([centroids_sgd_cos], lr=args.lr, momentum=args.momentum, weight_decay=0.0)
+			centroids_finetune = centroids.clone()
 
-			for epoch in range(args.sgd_epochs):
+			for epoch in range(args.finetune_epochs):
 				for batch in dataloader_train:
-
-					optimizer_sim.zero_grad()
-					optimizer_cos.zero_grad()
 
 					x, y = batch
 					x = x.to(device)
@@ -130,28 +121,17 @@ if __name__ == '__main__':
 
 					embeddings = model.forward(x).detach()
 
-					out_sim = torch.sigmoid(model.compute_logits_eval(centroids_sgd_sim, embeddings, ablation=False))
-					out_cos = model.compute_logits_eval(centroids_sgd_cos, embeddings, ablation=True)
-
-					loss_sim = torch.nn.CrossEntropyLoss()(out_sim, y)
-					loss_cos = torch.nn.CrossEntropyLoss()(out_cos, y)
-
-					loss_sim.backward()
-					optimizer_sim.step()
-
-					loss_cos.backward()
-					optimizer_cos.step()
+					centroids_finetune = model.update_centroids_eval(centroids=centroids_finetune, embeddings=embeddings, targets=y, update_lambda=args.centroid_smoothing):
 
 			task_builder.train_transformation = transform_test
 
 		else:
-			centroids_sgd_sim, centroids_sgd_cos = None, None
+			centroids_finetune = None
 
 		### Eval on test split
 
 		correct_sim, correct_cos, correct_fus = 0, 0, 0
-		correct_sim_sgdsim, correct_cos_sgdsim, correct_fus_sgdsim = 0, 0, 0
-		correct_sim_sgdcos, correct_cos_sgdcos, correct_fus_sgdcos = 0, 0, 0
+		correct_sim_finetune, correct_cos_finetune, correct_fus_finetune = 0, 0, 0
 
 		dataloader_test = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
 
@@ -176,41 +156,25 @@ if __name__ == '__main__':
 				pred_fus = out_fus.max(1)[1].long()
 				correct_fus += pred_fus.squeeze().eq(y).sum().item()
 
-				if centroids_sgd_sim is not None:
-					out_sim_sgd = model.compute_logits_eval(centroids_sgd_sim, embeddings)
-					pred_sim_sgd = out_sim_sgd.max(1)[1].long()
-					correct_sim_sgdsim += pred_sim_sgd.squeeze().eq(y).sum().item()
-					out_cos_sgd = model.compute_logits_eval(centroids_sgd_sim, embeddings, ablation=True)
-					pred_cos_sgd = out_cos_sgd.max(1)[1].long()
-					correct_cos_sgdsim += pred_cos_sgd.squeeze().eq(y).sum().item()
-					out_fus_sgd = (F.softmax(out_sim_sgd, dim=1)+F.softmax(out_cos_sgd, dim=1))*0.5
-					pred_fus_sgd = out_fus_sgd.max(1)[1].long()
-					correct_fus_sgdsim += pred_fus_sgd.squeeze().eq(y).sum().item()
-
-				if centroids_sgd_cos is not None:
-					out_sim_sgd = model.compute_logits_eval(centroids_sgd_cos, embeddings)
-					pred_sim_sgd = out_sim_sgd.max(1)[1].long()
-					correct_sim_sgdcos += pred_sim_sgd.squeeze().eq(y).sum().item()
-					out_cos_sgd = model.compute_logits_eval(centroids_sgd_cos, embeddings, ablation=True)
-					pred_cos_sgd = out_cos_sgd.max(1)[1].long()
-					correct_cos_sgdcos += pred_cos_sgd.squeeze().eq(y).sum().item()
-					out_fus_sgd = (F.softmax(out_sim_sgd, dim=1)+F.softmax(out_cos_sgd, dim=1))*0.5
-					pred_fus_sgd = out_fus_sgd.max(1)[1].long()
-					correct_fus_sgdcos += pred_fus_sgd.squeeze().eq(y).sum().item()
+				if centroids_finetune is not None:
+					out_sim_finetune = model.compute_logits_eval(centroids_finetune, embeddings)
+					pred_sim_finetune = out_sim_finetune.max(1)[1].long()
+					correct_sim_finetune += pred_sim_finetune.squeeze().eq(y).sum().item()
+					out_cos_finetune = model.compute_logits_eval(centroids_finetune, embeddings, ablation=True)
+					pred_cos_finetune = out_cos_finetune.max(1)[1].long()
+					correct_cos_finetune += pred_cos_sgd.squeeze().eq(y).sum().item()
+					out_fus_finetune = (F.softmax(out_sim_finetune, dim=1)+F.softmax(out_cos_finetune, dim=1))*0.5
+					pred_fus_finetune = out_fus_finetune.max(1)[1].long()
+					correct_fus_finetune += pred_fus_finetune.squeeze().eq(y).sum().item()
 
 		results['acc_list_sim'].append(100.*correct_sim/len(test_dataset))
 		results['acc_list_cos'].append(100.*correct_cos/len(test_dataset))
 		results['acc_list_fus'].append(100.*correct_fus/len(test_dataset))
 
-		if centroids_sgd_sim is not None:
-			results['acc_list_sim_sgdsim'].append(100.*correct_sim_sgdsim/len(test_dataset))
-			results['acc_list_cos_sgdsim'].append(100.*correct_cos_sgdsim/len(test_dataset))
-			results['acc_list_fus_sgdsim'].append(100.*correct_fus_sgdsim/len(test_dataset))
-
-		if centroids_sgd_cos is not None:
-			results['acc_list_sim_sgdcos'].append(100.*correct_sim_sgdcos/len(test_dataset))
-			results['acc_list_cos_sgdcos'].append(100.*correct_cos_sgdcos/len(test_dataset))
-			results['acc_list_fus_sgdcos'].append(100.*correct_fus_sgdcos/len(test_dataset))
+		if centroids_finetune is not None:
+			results['acc_list_sim_finetune'].append(100.*correct_sim_finetune/len(test_dataset))
+			results['acc_list_cos_finetune'].append(100.*correct_cos_finetune/len(test_dataset))
+			results['acc_list_fus_finetune'].append(100.*correct_fus_finetune/len(test_dataset))
 
 		if i % args.report_every == 0:
 			print('\nAccuracy at round {}/{}:\n'.format(i+1,args.num_runs))
