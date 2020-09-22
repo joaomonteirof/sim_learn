@@ -105,7 +105,7 @@ if __name__ == '__main__':
 
 		with torch.no_grad():
 
-			for batch in dataloader_train:
+			for batch in dataloader_test:
 
 				x, y = batch
 
