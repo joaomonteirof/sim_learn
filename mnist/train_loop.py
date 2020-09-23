@@ -165,8 +165,8 @@ class TrainLoop(object):
 
 		if self.adv_train and not self.ablation_ce:
 			target_model = wrapper(base_model=self.model, inf_mode='ce')
-			adversary = self.attack(target_model, loss_fn=torch.nn.CrossEntropyLoss(reduction="sum"), eps=0.3, nb_iter=10, 
-			eps_iter=0.03, rand_init=True, clip_min=0.0, clip_max=1.0, targeted=False)
+			adversary = self.attack(target_model, loss_fn=torch.nn.CrossEntropyLoss(reduction="sum"), eps=0.3, nb_iter=40, 
+			eps_iter=0.01, rand_init=True, clip_min=0.0, clip_max=1.0, targeted=False)
 			with self.adv_ctx(target_model):
 				x_adv = adversary.perturb(x, y)
 			x, y = torch.cat([x, x_adv], 0), torch.cat([y, y], 0)
@@ -215,8 +215,8 @@ class TrainLoop(object):
 
 		if self.adv_train and not self.ablation_ce:
 			target_model = wrapper(base_model=self.model, inf_mode='ce')
-			adversary = self.attack(target_model, loss_fn=torch.nn.CrossEntropyLoss(reduction="sum"), eps=0.3, nb_iter=10, 
-			eps_iter=0.03, rand_init=True, clip_min=0.0, clip_max=1.0, targeted=False)
+			adversary = self.attack(target_model, loss_fn=torch.nn.CrossEntropyLoss(reduction="sum"), eps=0.3, nb_iter=40, 
+			eps_iter=0.01, rand_init=True, clip_min=0.0, clip_max=1.0, targeted=False)
 			with self.adv_ctx(target_model):
 				x_adv = adversary.perturb(x, y)
 			x, y = torch.cat([x, x_adv], 0), torch.cat([y, y], 0)
