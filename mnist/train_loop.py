@@ -208,12 +208,20 @@ class TrainLoop(object):
 
 		self.model.eval()
 
+		x, y = batch
+
+		x = x.to(self.device)
+		y = y.to(self.device)
+
+		if self.adv_train and not self.ablation_ce:
+			target_model = wrapper(base_model=self.model, inf_mode='ce')
+			adversary = self.attack(target_model, loss_fn=torch.nn.CrossEntropyLoss(reduction="sum"), eps=0.3, nb_iter=10, 
+			eps_iter=0.03, rand_init=True, clip_min=0.0, clip_max=1.0, targeted=False)
+			with self.adv_ctx(target_model):
+				x_adv = adversary.perturb(x, y)
+			x, y = torch.cat([x, x_adv], 0), torch.cat([y, y], 0)
+
 		with torch.no_grad():
-
-			x, y = batch
-
-			x = x.to(self.device)
-			y = y.to(self.device)
 
 			embeddings = self.model.forward(x)
 
