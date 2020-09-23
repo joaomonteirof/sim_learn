@@ -108,7 +108,7 @@ if __name__ == '__main__':
 
 		if args.finetune_epochs>0:
 
-			task_builder.train_transformation = transform_train
+			dataloader_train.dataset.transformation = transform_train
 
 			centroids_finetune = centroids.clone()
 
@@ -123,7 +123,7 @@ if __name__ == '__main__':
 
 					centroids_finetune = model.update_centroids_eval(centroids=centroids_finetune, embeddings=embeddings, targets=y, update_lambda=args.centroid_smoothing)
 
-			task_builder.train_transformation = transform_test
+			dataloader_train.dataset.transformation = transform_test
 
 		else:
 			centroids_finetune = None
