@@ -256,7 +256,6 @@ class TrainLoop(object):
 			if self.logger:
 				self.logger.add_scalar('Valid/{}'.format(curr_r_at_k), self.history[curr_r_at_k][-1], self.total_iters)
 				self.logger.add_scalar('Valid/Best {}'.format(curr_r_at_k), np.max(self.history[curr_r_at_k]), self.total_iters)
-				self.logger.add_embedding(mat=self.model.centroids.detach().cpu().numpy(), metadata=np.arange(self.model.centroids.size(0)), global_step=self.total_iters)
 
 			if self.verbose>0:
 				print('\nCurrent {}, best {}, and epoch - iteration: {:0.4f}, {:0.4f}, {}, {}'.format(curr_r_at_k, curr_r_at_k, self.history[curr_r_at_k][-1], np.max(self.history[curr_r_at_k]), self.best_r_at_k_epoch[i], self.best_r_at_k_iteration[i]))
