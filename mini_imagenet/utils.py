@@ -91,6 +91,8 @@ def parse_args_for_log(args):
 	for arg_key in args_dict:
 		if args_dict[arg_key] is None:
 			args_dict[arg_key] = 'None'
+		elif isinstance(args_dict[arg_key], type([])):
+			args_dict[arg_key] = str(args_dict[arg_key])
 
 	return args_dict
 
