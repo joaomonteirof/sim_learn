@@ -23,7 +23,7 @@ parser.add_argument('--epochs', type=int, default=500, metavar='N', help='number
 parser.add_argument('--lr', type=float, default=0.001, metavar='LR', help='learning rate (default: 0.001)')
 parser.add_argument('--lr-steps', nargs='+', type=int, default=[100, 180], help='List of epochs to reduce lr by lr-factor')
 parser.add_argument('--lr-factor', type=float, default=0.1, metavar='LR', help='Factor to reduce learning rate (default: 0.1)')
-parser.add_argument('--momentum', type=float, default=0.9, metavar='beta1', help='momentum (default: 0.9)')
+parser.add_argument('--momentum', type=float, default=0.9, metavar='momentum', help='momentum (default: 0.9)')
 parser.add_argument('--l2', type=float, default=5e-4, metavar='lambda', help='L2 wheight decay coefficient (default: 0.0005)')
 parser.add_argument('--smoothing', type=float, default=0.2, metavar='l', help='Label smoothing (default: 0.2)')
 parser.add_argument('--centroid-smoothing', type=float, default=0.9, metavar='Lamb', help='Moving average parameter for centroids')
