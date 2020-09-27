@@ -86,10 +86,10 @@ if __name__ == '__main__':
 			correct_mix_5 += correct_mix_5_
 			total += x.size(0)
 
-	print('\nCE Top 1 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*float(correct_ce_1)/len(testset)))
-	print('\nCE Top 5 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*float(correct_ce_5)/len(testset)))
-	print('\nSIM Top 1 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*float(correct_sim_1)/len(testset)))
-	print('\nSIM Top 5 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*float(correct_sim_5)/len(testset)))
-	print('\nMIX Top 1 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*float(correct_mix_1)/len(testset)))
-	print('\nMIX Top 5 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*float(correct_mix_5)/len(testset)))
+	print('\nCE Top 1 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*float(correct_ce_1)/total))
+	print('\nCE Top 5 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*float(correct_ce_5)/total))
+	print('\nSIM Top 1 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*float(correct_sim_1)/total))
+	print('\nSIM Top 5 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*float(correct_sim_5)/total))
+	print('\nMIX Top 1 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*float(correct_mix_1)/total))
+	print('\nMIX Top 5 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*float(correct_mix_5)/total))
 
