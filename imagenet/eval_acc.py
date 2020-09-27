@@ -41,14 +41,8 @@ if __name__ == '__main__':
 	elif args.model == 'densenet':
 		model = densenet.DenseNet121(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax, n_classes=n_classes)
 	
-	try:
-		print(model.load_state_dict(ckpt['model_state'], strict=True), '\n')
-		model.centroids = ckpt['centroids']
-	except RuntimeError as err:
-		print("Runtime Error: {0}".format(err))
-	except:
-		print("Unexpected error:", sys.exc_info()[0])
-		raise
+	print(model.load_state_dict(ckpt['model_state'], strict=False), '\n')
+	model.centroids = ckpt['centroids']
 
 	if args.cuda:
 		device = get_freer_gpu()
