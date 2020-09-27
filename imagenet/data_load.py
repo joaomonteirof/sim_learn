@@ -83,6 +83,46 @@ class Loader(Dataset):
 					self.example_list[-1].append(clss)
 					self.example_list[-1].append(self.clss2label[clss])
 
+class Loader_test(Dataset):
+
+	def __init__(self, hdf5_name, transformation):
+		super(Loader_test, self).__init__()
+		self.hdf5_name = hdf5_name
+		self.transformation = transformation
+
+		self.create_lists()
+
+		self.open_file = None
+
+	def __getitem__(self, index):
+
+		example, clss, y = self.example_list[index]
+
+		if not self.open_file: self.open_file = h5py.File(self.hdf5_name, 'r')
+
+		example_data = self.transformation( torch.from_numpy(self.open_file[clss][example][:,...]) )
+
+		return example_data.contiguous(), y
+
+	def __len__(self):
+		return len(self.example_list)
+
+	def create_lists(self):
+
+		self.example_list = []
+
+		open_file = h5py.File(self.hdf5_name, 'r')
+
+		for i, clss in enumerate(open_file):
+			clss_example_list = list(open_file[clss])
+			for ex in clss_example_list:
+				self.example_list.append([ex, clss, torch.LongTensor([i])])
+
+		open_file.close()
+
+		self.n_classes = i+1
+
+
 if __name__=='__main__':
 
 	import torch.utils.data
