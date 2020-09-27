@@ -4,6 +4,7 @@ import torch
 import torch.nn.functional as F
 from torchvision import datasets, transforms
 from models import vgg, resnet, densenet
+from data_load import Loader, collater
 import numpy as np
 import os
 import sys
@@ -15,6 +16,7 @@ if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser(description='ImageNet Evaluation')
 	parser.add_argument('--cp-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
+	parser.add_argument('--hdf-path', type=str, default=None, metavar='Path', help='Path to data stored in hdf. Has priority over data path if set')
 	parser.add_argument('--data-path', type=str, default='./data/', metavar='Path', help='Path to data')
 	parser.add_argument('--batch-size', type=int, default=100, metavar='N', help='input batch size for testing (default: 100)')
 	parser.add_argument('--model', choices=['vgg', 'resnet', 'densenet'], default='resnet')
@@ -23,6 +25,15 @@ if __name__ == '__main__':
 	parser.add_argument('--workers', type=int, default=4, metavar='N', help='Data load workers (default: 4)')
 	args = parser.parse_args()
 	args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
+
+	if args.hdf_path:
+		transform_test = transforms.Compose([transforms.ToPILImage(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+		validset = Loader(args.hdf_path, transform_test)
+		valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=True, num_workers=args.n_workers, pin_memory=True, collate_fn=collater)
+	else:
+		transform_test = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
+		validset = datasets.ImageFolder(args.valid_data_path, transform=transform_test)
+		valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=True, num_workers=args.n_workers, pin_memory=True)
 
 	transform_test = transforms.Compose([transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
 	testset = datasets.ImageFolder(args.data_path, transform=transform_test)
