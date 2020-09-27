@@ -14,6 +14,7 @@ import os
 import sys
 from tqdm import tqdm
 from utils import *
+import copy
 
 if __name__ == '__main__':
 
@@ -114,22 +115,23 @@ if __name__ == '__main__':
 
 			dataloader_train.dataset.transformation = transform_train
 
-			model_finetune = type(model)(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax, n_classes=n_classes).to(device).train()
+			model_finetune = copy.deepcopy(model).to(device).train()
 			model_finetune.load_state_dict(model.state_dict())
 			model_finetune.centroids = centroids.clone()
 			model_finetune.n_classes = args.num_ways
-			optmizer = optim.SGD(model_finetune.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.l2)
+			optimizer = optim.SGD(model_finetune.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.l2)
 
 			for epoch in range(args.finetune_epochs):
 				for batch in dataloader_train:
 
 					x, y = batch
 					x = x.to(device)
-					y = y.to(device)
+					y = y.to(device).squeeze()
 
 					embeddings = model.forward(x).detach()
 
 			sim_loss = torch.nn.CrossEntropyLoss()(model_finetune.compute_logits(embeddings), y)
+			optimizer.zero_grad()
 			sim_loss.backward()
 			optimizer.step()
 
@@ -168,6 +170,7 @@ if __name__ == '__main__':
 				correct_fus += pred_fus.squeeze().eq(y).sum().item()
 
 				if centroids_finetune is not None:
+					model_finetune.eval()
 					out_sim_finetune = model_finetune.compute_logits_eval(centroids_finetune, embeddings)
 					pred_sim_finetune = out_sim_finetune.max(1)[1].long()
 					correct_sim_finetune += pred_sim_finetune.squeeze().eq(y).sum().item()
