@@ -28,16 +28,12 @@ if __name__ == '__main__':
 
 	if args.hdf_path:
 		transform_test = transforms.Compose([transforms.ToPILImage(), transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
-		validset = Loader(args.hdf_path, transform_test)
-		valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=True, num_workers=args.n_workers, pin_memory=True, collate_fn=collater)
+		testset = Loader(args.hdf_path, transform_test)
+		test_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, pin_memory=True, collate_fn=collater)
 	else:
 		transform_test = transforms.Compose([transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
-		validset = datasets.ImageFolder(args.valid_data_path, transform=transform_test)
-		valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=True, num_workers=args.n_workers, pin_memory=True)
-
-	transform_test = transforms.Compose([transforms.CenterCrop(224), transforms.ToTensor(), transforms.Normalize(mean=mean, std=std)])
-	testset = datasets.ImageFolder(args.data_path, transform=transform_test)
-	test_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
+		testset = datasets.ImageFolder(args.data_path, transform=transform_test)
+		test_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, pin_memory=True)
 
 	ckpt = torch.load(args.cp_path, map_location = lambda storage, loc: storage)
 	try :
