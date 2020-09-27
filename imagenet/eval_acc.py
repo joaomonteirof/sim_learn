@@ -72,7 +72,7 @@ if __name__ == '__main__':
 			(correct_ce_1_, correct_ce_5_) = correct_topk(pred_ce, y, (1,5))
 
 			pred_sim = F.softmax(model.compute_logits(embeddings, ablation=args.ablation_sim), dim=1)
-			(correct_sim_1_, correct_cesim_5_) = correct_topk(pred_sim, y, (1,5))
+			(correct_sim_1_, correct_sim_5_) = correct_topk(pred_sim, y, (1,5))
 
 			pred_mix = 0.5*pred_ce+0.5*pred_sim
 			(correct_mix_1_, correct_mix_5_) = correct_topk(pred_mix, y, (1,5))
