@@ -130,10 +130,13 @@ if __name__ == '__main__':
 
 					embeddings = model.forward(x).detach()
 
-			sim_loss = torch.nn.CrossEntropyLoss()(model_finetune.compute_logits(embeddings), y)
-			optimizer.zero_grad()
-			sim_loss.backward()
-			optimizer.step()
+					model_finetune.update_centroids(embeddings, y)
+
+					sim_loss = torch.nn.CrossEntropyLoss()(model_finetune.compute_logits(embeddings), y)
+
+					optimizer.zero_grad()
+					sim_loss.backward()
+					optimizer.step()
 
 			dataloader_train.dataset.transformation = transform_test
 			centroids_finetune = model_finetune.centroids
