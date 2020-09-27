@@ -55,6 +55,7 @@ if __name__ == '__main__':
 	model.eval()
 
 	correct_ce_1, correct_ce_5, correct_sim_1, correct_sim_5, correct_mix_1, correct_mix_5 = 0, 0, 0, 0, 0, 0
+	total = 0
 
 	with torch.no_grad():
 
@@ -83,6 +84,7 @@ if __name__ == '__main__':
 			correct_sim_5 += correct_sim_5_
 			correct_mix_1 += correct_mix_1_
 			correct_mix_5 += correct_mix_5_
+			total += x.size(0)
 
 	print('\nCE Top 1 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*float(correct_ce_1)/len(testset)))
 	print('\nCE Top 5 Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*float(correct_ce_5)/len(testset)))
