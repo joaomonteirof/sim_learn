@@ -65,7 +65,7 @@ if __name__ == '__main__':
 			x, y = batch
 
 			x = x.to(device)
-			y = y.to(device).squeeze()
+			y = y.to(device)
 
 			embeddings = model.forward(x)
 
