@@ -24,7 +24,8 @@ parser.add_argument('--epochs', type=int, default=500, metavar='N', help='number
 parser.add_argument('--lr', type=float, default=0.0001, metavar='LR', help='learning rate (default: 0.0001)')
 parser.add_argument('--lr-steps', nargs='+', type=int, default=[20,50,120], help='List of epochs to reduce lr by lr-factor')
 parser.add_argument('--lr-factor', type=float, default=0.1, metavar='LR', help='Factor to reduce learning rate (default: 0.1)')
-parser.add_argument('--momentum', type=float, default=0.9, metavar='momentum', help='Momentum (default: 0.9)')
+parser.add_argument('--beta1', type=float, default=0.9, metavar='b1', help='Adam beta 1 (default: 0.9)')
+parser.add_argument('--beta2', type=float, default=0.999, metavar='b2', help='Adam beta 2 (default: 0.999)')
 parser.add_argument('--l2', type=float, default=1e-4, metavar='lambda', help='L2 wheight decay coefficient (default: 0.0005)')
 parser.add_argument('--smoothing', type=float, default=0.2, metavar='l', help='Label smoothing (default: 0.2)')
 parser.add_argument('--centroid-smoothing', type=float, default=0.9, metavar='Lamb', help='Moving average parameter for centroids')
@@ -127,7 +128,7 @@ if args.logdir:
 else:
 	writer = None
 
-optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.l2)
+optimizer = optim.Adam(model.parameters(), lr=args.lr, betas=(args.beta1, args.beta2), weight_decay=args.l2)
 
 trainer = TrainLoop(model, optimizer, train_loader, valid_loader, max_gnorm=args.max_gnorm,
 		lr_steps=args.lr_steps, lr_factor=args.lr_factor, label_smoothing=args.smoothing, verbose=args.verbose, 
