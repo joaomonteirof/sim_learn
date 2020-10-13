@@ -31,6 +31,7 @@ if __name__ == '__main__':
 	parser.add_argument('--report-every', type=int, default=50, metavar='N', help='Number of runs to wait before reporting current results (default: 50)')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
 	parser.add_argument('--workers', type=int, default=4, metavar='N', help='Data load workers (default: 4)')
+	parser.add_argument('--transductive', action='store_true', default=False, help='Enables use query set for centering')
 	### fine tuning config
 	parser.add_argument('--finetune-epochs', type=int, default=0, metavar='N', help='number of epochs to adapt centroids (default: 0)')
 	parser.add_argument('--centroid-smoothing', type=float, default=0.9, metavar='Lamb', help='Moving average parameter for centroids')
@@ -153,6 +154,11 @@ if __name__ == '__main__':
 
 		with torch.no_grad():
 
+			if args.transductive:
+				centroids_copy = centroids.clone()
+				if centroids_finetune:
+					centroids_finetune_copy = centroids_finetune.clone()
+
 			for batch in dataloader_test:
 
 				x, y = batch
@@ -161,6 +167,12 @@ if __name__ == '__main__':
 				y = y.to(device).squeeze()
 
 				embeddings = model.forward(x)
+
+				if args.transductive:
+					centroids = centroids_copy - embeddings.mean(0, keepdim=True).repeat(centroids_copy.size(0),1)
+					if centroids_finetune:
+						centroids_finetune = centroids_finetune_copy - embeddings.mean(0, keepdim=True).repeat(centroids_finetune_copy.size(0),1)
+					embeddings -= embeddings.mean(0, keepdim=True).repeat(embeddings.size(0),1)
 
 				out_sim = model.compute_logits_eval(centroids, embeddings)
 				pred_sim = out_sim.max(1)[1].long()
