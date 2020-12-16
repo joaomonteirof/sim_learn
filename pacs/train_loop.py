@@ -196,7 +196,7 @@ class TrainLoop(object):
 			pred_ce = F.softmax(out_ce, dim=1)
 			(correct_ce_1, correct_ce_3) = correct_topk(pred_ce, y, (1,3))
 
-			out_sim = self.model.compute_logits(embeddings)
+			out_sim = self.model.compute_logits(embeddings, ablation=self.ablation_sim)
 			pred_sim = F.softmax(out_sim, dim=1)
 			(correct_sim_1, correct_sim_3) = correct_topk(pred_sim, y, (1,3))
 

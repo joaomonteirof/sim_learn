@@ -266,7 +266,7 @@ class TrainLoop(object):
 
 						embeddings = self.model.forward(x)
 
-						out_sim = self.model.compute_logits_eval(centroids, embeddings)
+						out_sim = self.model.compute_logits_eval(centroids, embeddings, ablation=self.ablation_sim)
 						pred_sim = out_sim.max(1)[1].long()
 						correct_sim += pred_sim.squeeze().eq(y).sum().item()
 						out_cos = self.model.compute_logits_eval(centroids, embeddings, ablation=True)

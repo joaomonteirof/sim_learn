@@ -232,7 +232,7 @@ class TrainLoop(object):
 			pred_ce = F.softmax(out_ce, dim=1).max(1)[1].long()
 			correct_ce = pred_ce.squeeze().eq(y.squeeze()).detach().sum().item()
 
-			out_sim = self.model.compute_logits(embeddings)
+			out_sim = self.model.compute_logits(embeddings, ablation=self.ablation_sim)
 			pred_sim = F.softmax(out_sim, dim=1).max(1)[1].long()
 			correct_sim = pred_sim.squeeze().eq(y.squeeze()).detach().sum().item()
 
