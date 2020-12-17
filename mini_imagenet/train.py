@@ -7,7 +7,7 @@ import torch.optim as optim
 from data_load import Loader, collater, fewshot_eval_builder
 from torchvision import datasets, transforms
 from RandAugment import RandAugment
-from models import resnet, resnet12, wideresnet
+from models import resnet12
 import numpy as np
 from time import sleep
 import os
@@ -17,7 +17,6 @@ from utils import mean, std, set_np_randomseed, get_freer_gpu, parse_args_for_lo
 
 # Training settings
 parser = argparse.ArgumentParser(description='Mini Imagenet')
-parser.add_argument('--model', choices=['resnet', 'resnet_12', 'wideresnet'], default='resnet')
 parser.add_argument('--batch-size', type=int, default=64, metavar='N', help='input batch size for training (default: 64)')
 parser.add_argument('--epochs', type=int, default=500, metavar='N', help='number of epochs to train (default: 500)')
 parser.add_argument('--lr', type=float, default=0.001, metavar='LR', help='learning rate (default: 0.001)')
@@ -45,6 +44,7 @@ parser.add_argument('--no-cuda', action='store_true', default=False, help='Disab
 parser.add_argument('--no-cp', action='store_true', default=False, help='Disables checkpointing')
 parser.add_argument('--ablation-sim', action='store_true', default=False, help='Disables similarity learning')
 parser.add_argument('--ablation-ce', action='store_true', default=False, help='Disables auxiliary classification loss')
+parser.add_argument('--ablation-centroids', action='store_true', default=False, help='Disables moving average updates of centroids and trains with sgd instead')
 parser.add_argument('--verbose', type=int, default=1, metavar='N', help='Verbose is activated if > 0')
 parser.add_argument('--logdir', type=str, default=None, metavar='Path', help='Path for checkpointing')
 ###Validation config
@@ -83,12 +83,7 @@ valid_loader = fewshot_eval_builder(hdf5_name=args.valid_hdf_path, train_transfo
 
 args.nclasses = trainset.n_classes if isinstance(trainset, Loader) else len(trainset.classes)
 
-if args.model == 'resnet':
-	model = resnet.ResNet18(nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing, n_classes=args.nclasses)
-elif args.model == 'resnet_12':
-	model = resnet12.ResNet12(nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing, n_classes=args.nclasses)
-elif args.model == 'wideresnet':
-	model = wideresnet.WideResNet(nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing, n_classes=args.nclasses)
+model = resnet12.ResNet12(nh=args.n_hidden, n_h=args.hidden_size, dropout_prob=args.dropout_prob, sm_type=args.softmax, centroids_lambda=args.centroid_smoothing, n_classes=args.nclasses, ablation_centroids=args.ablation_centroids)
 
 if args.verbose >0:
 	print('\n', model, '\n')
@@ -108,7 +103,8 @@ optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, we
 
 trainer = TrainLoop(model, optimizer, train_loader, valid_loader, eval_config=eval_config, max_gnorm=args.max_gnorm, label_smoothing=args.smoothing,
 			lr_steps=args.lr_steps, lr_factor=args.lr_factor, verbose=args.verbose, save_cp=(not args.no_cp), checkpoint_path=args.checkpoint_path, 
-			checkpoint_epoch=args.checkpoint_epoch, ablation_sim=args.ablation_sim, ablation_ce=args.ablation_ce, cuda=args.cuda, logger=writer)
+			checkpoint_epoch=args.checkpoint_epoch, ablation_sim=args.ablation_sim, ablation_ce=args.ablation_ce, ablation_centroids=args.ablation_centroids,
+			cuda=args.cuda, logger=writer)
 
 if args.verbose >0:
 	args_dict = dict(vars(args))

@@ -9,7 +9,7 @@ from data_load import fewshot_eval_builder
 from torchvision import transforms
 from RandAugment import RandAugment
 from torch.utils.data import DataLoader
-from models import resnet, resnet12, wideresnet
+from models import resnet12
 import os
 import sys
 from tqdm import tqdm
@@ -20,7 +20,6 @@ if __name__ == '__main__':
 
 
 	parser = argparse.ArgumentParser(description='Mini-Imagenet few shot classification evaluation')
-	parser.add_argument('--model', choices=['resnet', 'resnet_12', 'wideresnet'], default='resnet')
 	parser.add_argument('--cp-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
 	parser.add_argument('--data-path', type=str, default='./data/', metavar='Path', help='Path to data')
 	parser.add_argument('--num-shots', type=int, default=5, help='Number of examples per class (default: 5)')
@@ -61,12 +60,7 @@ if __name__ == '__main__':
 		print('{}: {}'.format(arg_key, args_dict[arg_key]))
 	print('\n')
 
-	if args.model == 'resnet':
-		model = resnet.ResNet18(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax, n_classes=n_classes)
-	elif args.model == 'resnet_12':
-		model = resnet12.ResNet12(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax, n_classes=n_classes)
-	elif args.model == 'wideresnet':
-		model = wideresnet.WideResNet(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax, n_classes=n_classes)
+	model = resnet12.ResNet12(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax, n_classes=n_classes)
 	
 	print(model.load_state_dict(ckpt['model_state'], strict=False))
 	model.n_classes = args.num_ways

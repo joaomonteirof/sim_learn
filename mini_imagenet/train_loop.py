@@ -14,7 +14,7 @@ from data_load import Loader
 
 class TrainLoop(object):
 
-	def __init__(self, model, optimizer, train_loader, valid_loader, eval_config, max_gnorm, lr_steps, lr_factor, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, cuda=True, logger=None):
+	def __init__(self, model, optimizer, train_loader, valid_loader, eval_config, max_gnorm, lr_steps, lr_factor, label_smoothing, verbose=-1, cp_name=None, save_cp=False, checkpoint_path=None, checkpoint_epoch=None, ablation_sim=False, ablation_ce=False, ablation_centroids=False, cuda=True, logger=None):
 		if checkpoint_path is None:
 			# Save to current directory
 			self.checkpoint_path = os.getcwd()
@@ -27,6 +27,7 @@ class TrainLoop(object):
 		self.cuda_mode = cuda
 		self.ablation_sim = ablation_sim
 		self.ablation_ce = ablation_ce
+		self.ablation_centroids = ablation_centroids
 		self.model = model
 		self.optimizer = optimizer
 		self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=lr_steps, gamma=lr_factor)
@@ -179,7 +180,7 @@ class TrainLoop(object):
 
 		embeddings = self.model.forward(x)
 
-		self.model.update_centroids(embeddings, y)
+		self.model.update_centroids(embeddings, y, ablation=self.ablation_centroids)
 
 		if not self.ablation_ce:
 			ce_loss = self.ce_criterion(self.model.out_proj(embeddings, y), y)

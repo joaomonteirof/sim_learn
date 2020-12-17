@@ -123,7 +123,7 @@ class BasicBlock(nn.Module):
 
 
 class ResNet(nn.Module):
-	def __init__(self, nh, n_h, sm_type, block, dropout_prob=0.25, centroids_lambda=0.9, keep_prob=1.0, avg_pool=False, drop_rate=0.0, dropblock_size=5, num_classes=1000):
+	def __init__(self, nh, n_h, sm_type, block, dropout_prob=0.25, centroids_lambda=0.9, keep_prob=1.0, avg_pool=False, drop_rate=0.0, dropblock_size=5, num_classes=1000, ablation_centroids=False):
 		self.inplanes = 3
 		super(ResNet, self).__init__()
 
@@ -136,7 +136,10 @@ class ResNet(nn.Module):
 		self.centroids_lambda = centroids_lambda
 
 		self.centroids = torch.rand(self.n_classes, 640)
-		self.centroids.requires_grad = False
+		if ablation_centroids:
+			self.centroids = nn.Parameter(self.centroids)
+		else:
+			self.centroids.requires_grad = False
 
 		self.layer1 = self._make_layer(block, 64, stride=2, drop_rate=drop_rate)
 		self.layer2 = self._make_layer(block, 160, stride=2, drop_rate=drop_rate)
@@ -213,17 +216,23 @@ class ResNet(nn.Module):
 		
 		return z
 
-	def update_centroids(self, embeddings, targets):
+	def update_centroids(self, embeddings, targets, ablation):
 
 		self.centroids =  self.centroids.to(embeddings.device)
 
-		new_centroids, mask = get_centroids(embeddings, targets, self.n_classes)
+		if ablation:
+			if not isinstance(self.centroids, nn.Parameter):
+				self.centroids = nn.Parameter(self.centroids)
 
-		with torch.no_grad():
-			mask *= 1.-self.centroids_lambda
-			self.centroids = (1.-mask)*self.centroids + mask*new_centroids
+		else:
 
-		self.centroids.requires_grad = False
+			new_centroids, mask = get_centroids(embeddings, targets, self.n_classes)
+
+			with torch.no_grad():
+				mask *= 1.-self.centroids_lambda
+				self.centroids = (1.-mask)*self.centroids + mask*new_centroids
+
+			self.centroids.requires_grad = False
 
 	def compute_logits(self, embeddings, ablation=False):
 
@@ -264,8 +273,8 @@ class ResNet(nn.Module):
 			else:
 				return self.forward_bin(centroids, emb).squeeze(-1).transpose(1,-1)
 
-def ResNet12(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=100, centroids_lambda=0.9, keep_prob=1.0, avg_pool=True, **kwargs):
+def ResNet12(nh=1, n_h=512, dropout_prob=0.25, sm_type='softmax', n_classes=100, centroids_lambda=0.9, keep_prob=1.0, avg_pool=True, ablation_centroids=False, **kwargs):
 	"""Constructs a ResNet-12 model.
 	"""
-	model = ResNet(block=BasicBlock, keep_prob=keep_prob, avg_pool=avg_pool, num_classes=n_classes, nh=nh, n_h=n_h, sm_type=sm_type, dropout_prob=dropout_prob, centroids_lambda=centroids_lambda, **kwargs)
+	model = ResNet(block=BasicBlock, keep_prob=keep_prob, avg_pool=avg_pool, num_classes=n_classes, nh=nh, n_h=n_h, sm_type=sm_type, dropout_prob=dropout_prob, centroids_lambda=centroids_lambda, ablation_centroids=ablation_centroids, **kwargs)
 	return model
