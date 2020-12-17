@@ -137,7 +137,7 @@ class ResNet(nn.Module):
 
 		self.centroids = torch.rand(self.n_classes, 640)
 		if ablation_centroids:
-			self.centroids = nn.Parameter(self.centroids)
+			self.centroids = nn.Parameter(self.centroids, requires_grad=True)
 		else:
 			self.centroids.requires_grad = False
 
@@ -220,11 +220,7 @@ class ResNet(nn.Module):
 
 		self.centroids =  self.centroids.to(embeddings.device)
 
-		if ablation:
-			if not isinstance(self.centroids, nn.Parameter):
-				self.centroids = nn.Parameter(self.centroids)
-
-		else:
+		if not ablation:
 
 			new_centroids, mask = get_centroids(embeddings, targets, self.n_classes)
 
