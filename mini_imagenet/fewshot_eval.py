@@ -34,9 +34,8 @@ if __name__ == '__main__':
 	### fine tuning config
 	parser.add_argument('--finetune-epochs', type=int, default=0, metavar='N', help='number of epochs to adapt centroids (default: 0)')
 	parser.add_argument('--centroid-smoothing', type=float, default=0.9, metavar='Lamb', help='Moving average parameter for centroids')
-	parser.add_argument('--lr', type=float, default=0.00001, metavar='LR', help='learning rate (default: 0.00001)')
+	parser.add_argument('--lr', type=float, default=0.0001, metavar='LR', help='learning rate (default: 0.0001)')
 	parser.add_argument('--momentum', type=float, default=0.5, metavar='momentum', help='momentum (default: 0.5)')
-	parser.add_argument('--l2', type=float, default=1e-3, metavar='lambda', help='L2 wheight decay coefficient (default: 0.001)')
 	parser.add_argument('--aug-M', type=int, default=15, metavar='AUGM', help='Augmentation hp. Default is 15')
 	parser.add_argument('--aug-N', type=int, default=2, metavar='AUGN', help='Augmentation hp. Default is 2')
 	args = parser.parse_args()
@@ -110,11 +109,9 @@ if __name__ == '__main__':
 
 			dataloader_train.dataset.transformation = transform_train
 
-			model_finetune = copy.deepcopy(model).to(device).train()
-			model_finetune.load_state_dict(model.state_dict())
-			model_finetune.centroids = centroids.clone()
-			model_finetune.n_classes = args.num_ways
-			optimizer = optim.SGD(model_finetune.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.l2)
+			centroids_finetune = centroids.clone()
+			centroids_finetune.requires_grad = True
+			optimizer = optim.SGD(centroids_finetune, lr=args.lr, momentum=args.momentum)
 
 			for epoch in range(args.finetune_epochs):
 				for batch in dataloader_train:
@@ -125,16 +122,13 @@ if __name__ == '__main__':
 
 					embeddings = model.forward(x).detach()
 
-					model_finetune.update_centroids(embeddings, y)
-
-					sim_loss = torch.nn.CrossEntropyLoss()(model_finetune.compute_logits(embeddings), y)
+					sim_loss = torch.nn.CrossEntropyLoss()(model.compute_logits(centroids_finetune), y)
 
 					optimizer.zero_grad()
 					sim_loss.backward()
 					optimizer.step()
 
 			dataloader_train.dataset.transformation = transform_test
-			centroids_finetune = model_finetune.centroids
 
 		else:
 			centroids_finetune = None
@@ -179,11 +173,11 @@ if __name__ == '__main__':
 				correct_fus += pred_fus.squeeze().eq(y).sum().item()
 
 				if centroids_finetune is not None:
-					model_finetune.eval()
-					out_sim_finetune = model_finetune.compute_logits_eval(centroids_finetune, embeddings)
+					model.eval()
+					out_sim_finetune = model.compute_logits_eval(centroids_finetune, embeddings)
 					pred_sim_finetune = out_sim_finetune.max(1)[1].long()
 					correct_sim_finetune += pred_sim_finetune.squeeze().eq(y).sum().item()
-					out_cos_finetune = model_finetune.compute_logits_eval(centroids_finetune, embeddings, ablation=True)
+					out_cos_finetune = model.compute_logits_eval(centroids_finetune, embeddings, ablation=True)
 					pred_cos_finetune = out_cos_finetune.max(1)[1].long()
 					correct_cos_finetune += pred_cos_finetune.squeeze().eq(y).sum().item()
 					out_fus_finetune = (F.softmax(out_sim_finetune, dim=1)+F.softmax(out_cos_finetune, dim=1))*0.5
