@@ -109,7 +109,7 @@ if __name__ == '__main__':
 
 			dataloader_train.dataset.transformation = transform_train
 
-			centroids_finetune = centroids.clone()
+			centroids_finetune = centroids.clone().to(device)
 			centroids_finetune.requires_grad = True
 			optimizer = optim.SGD((centroids_finetune,), lr=args.lr, momentum=args.momentum)
 
