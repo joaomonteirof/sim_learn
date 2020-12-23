@@ -122,7 +122,7 @@ if __name__ == '__main__':
 
 					embeddings = model.forward(x).detach()
 
-					sim_loss = torch.nn.CrossEntropyLoss()(model.compute_logits(centroids_finetune), y)
+					sim_loss = torch.nn.CrossEntropyLoss()(model.compute_logits_eval(centroids_finetune, embeddings), y)
 
 					optimizer.zero_grad()
 					sim_loss.backward()
