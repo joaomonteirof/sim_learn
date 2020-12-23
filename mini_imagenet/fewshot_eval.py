@@ -111,7 +111,7 @@ if __name__ == '__main__':
 
 			centroids_finetune = centroids.clone()
 			centroids_finetune.requires_grad = True
-			optimizer = optim.SGD(centroids_finetune, lr=args.lr, momentum=args.momentum)
+			optimizer = optim.SGD((centroids_finetune,), lr=args.lr, momentum=args.momentum)
 
 			for epoch in range(args.finetune_epochs):
 				for batch in dataloader_train:
