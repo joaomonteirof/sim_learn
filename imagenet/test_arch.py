@@ -13,6 +13,7 @@ parser.add_argument('--hidden-size', type=int, default=512, metavar='S', help='l
 parser.add_argument('--n-hidden', type=int, default=1, metavar='N', help='maximum number of frames per utterance (default: 1)')
 parser.add_argument('--batch-size', type=int, default=5, metavar='N', help='batch size')
 parser.add_argument('--ablation-sim', action='store_true', default=False, help='Disables similarity learning')
+parser.add_argument('--pretrained', action='store_true', default=False, help='Get pretrained weights on imagenet. Encoder only')
 args = parser.parse_args()
 
 if args.model == 'vgg':
@@ -21,6 +22,20 @@ elif args.model == 'resnet':
 	model = resnet.ResNet50(nh=args.n_hidden, n_h=args.hidden_size)
 elif args.model == 'densenet':
 	model = densenet.DenseNet121(nh=args.n_hidden, n_h=args.hidden_size)
+
+if args.pretrained:
+	print('\nLoading pretrained encoder from torchvision\n')
+	if args.model == 'vgg':
+		model_pretrained = torchvision.models.VGG('VGG19', pretrained=True)
+		pretrained_state_dict = model_pretrained.state_dict()
+	elif args.model == 'resnet':
+		model_pretrained = torchvision.models.resnet50(pretrained=True)
+		pretrained_state_dict = model_pretrained.state_dict()
+	elif args.model == 'densenet':
+		model_pretrained = torchvision.models.densenet121(pretrained=True)
+		pretrained_state_dict = model_pretrained.state_dict()
+
+	print(model.load_state_dict(pretrained_state_dict, strict=False))
 
 x, y = torch.rand(args.batch_size, 3, 224, 224), torch.randint(1000, (args.batch_size,)).long()
 
