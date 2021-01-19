@@ -1,7 +1,8 @@
 from __future__ import print_function
 import argparse
 import torch
-import torch.nn.functional as F
+from train_loop import TrainLoop
+import torch.optim as optim
 from torchvision import datasets, transforms
 from models import resnet, wideresnet
 import numpy as np
@@ -13,14 +14,14 @@ from utils import *
 if __name__ == '__main__':
 
 
-	parser = argparse.ArgumentParser(description='Cifar10 ACC Evaluation')
+	parser = argparse.ArgumentParser(description='Symmetry check')
 	parser.add_argument('--cp-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
 	parser.add_argument('--data-path', type=str, default='./data/', metavar='Path', help='Path to data')
-	parser.add_argument('--batch-size', type=int, default=100, metavar='N', help='input batch size for testing (default: 100)')
 	parser.add_argument('--model', choices=['resnet', 'wideresnet'], default='resnet')
+	parser.add_argument('--out-path', type=str, default=None, metavar='Path', help='Path for saving computed scores')
+	parser.add_argument('--out-prefix', type=str, default=None, metavar='Path', help='Prefix to be added to output file name')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
-	parser.add_argument('--ablation-sim', action='store_true', default=False, help='Computes similarities as negative Euclidean distances')
-	parser.add_argument('--workers', type=int, default=4, metavar='N', help='Data load workers (default: 4)')
+	parser.add_argument('--no-histogram', action='store_true', default=False, help='Disables histogram plot')
 	args = parser.parse_args()
 	args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 
@@ -56,35 +57,39 @@ if __name__ == '__main__':
 	model = model.to(device)
 	model.centroids = model.centroids.to(device)
 
-	model.eval()
+	scores_dif = []
 
-	correct_ce, correct_sim, correct_mix = 0, 0, 0
+	mem_embeddings = {}
+
+	model.eval()
 
 	with torch.no_grad():
 
-		iterator = tqdm(test_loader, total=len(test_loader))
-		for batch in iterator:
+		iterator = tqdm(range(len(validset)), total=len(validset))
+		for i in iterator:
 
-			x, y = batch
+			enroll_ex_data = validset[i][0].unsqueeze(0)
 
-			x = x.to(device)
-			y = y.to(device).squeeze()
+			if args.cuda:
+				enroll_ex_data = enroll_ex_data.cuda(device)
 
-			embeddings = model.forward(x)
+			emb_enroll = model.forward(enroll_ex_data).detach()
 
-			out_ce = F.softmax(model.out_proj(embeddings), dim=1)
-			pred_ce = out_ce.max(1)[1].long()
-			correct_ce += pred_ce.squeeze().eq(y).sum().item()
+			scores_dif.append( 1.-torch.nn.Sigmoid(model.forward_bin(emb_enroll, emb_enroll)).squeeze().item() )
 
-			out_sim = F.softmax(model.compute_logits(embeddings, ablation=args.ablation_sim), dim=1)
-			pred_sim = out_sim.max(1)[1].long()
-			correct_sim += pred_sim.squeeze().eq(y).sum().item()
+	print('\nScoring done')
 
-			out_mix = 0.5*out_ce+0.5*out_sim
-			pred_mix = out_mix.max(1)[1].long()
-			correct_mix += pred_mix.squeeze().eq(y).sum().item()
+	print('Avg: {}'.format(np.mean(scores_dif)))
+	print('Std: {}'.format(np.std(scores_dif)))
+	print('Median: {}'.format(np.median(scores_dif)))
+	print('Max: {}'.format(np.max(scores_dif)))
+	print('Min: {}'.format(np.min(scores_dif)))
 
-	print('\nCE Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct_ce/len(testset)))
-	print('\nSIM Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct_sim/len(testset)))
-	print('\nMIX Accuracy of model {}: {}\n'.format(args.cp_path.split('/')[-1], 100.*correct_mix/len(testset)))
-
+	if not args.no_histogram:
+		import matplotlib
+		matplotlib.rcParams['pdf.fonttype'] = 42
+		matplotlib.rcParams['ps.fonttype'] = 42
+		matplotlib.use('agg')
+		import matplotlib.pyplot as plt
+		plt.hist(scores_dif, density=True, bins=30)
+		plt.savefig(args.out_path+args.out_prefix+'met_hist_cifar.pdf', bbox_inches='tight')
