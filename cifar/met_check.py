@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
 			emb_enroll = model.forward(enroll_ex_data).detach()
 
-			scores_dif.append( 1.-torch.nn.Sigmoid(model.forward_bin(emb_enroll, emb_enroll)).squeeze().item() )
+			scores_dif.append( 1.-torch.Sigmoid(model.forward_bin(emb_enroll, emb_enroll)).squeeze().item() )
 
 	print('\nScoring done')
 
