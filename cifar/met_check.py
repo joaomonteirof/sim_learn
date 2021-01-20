@@ -18,8 +18,8 @@ if __name__ == '__main__':
 	parser.add_argument('--cp-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
 	parser.add_argument('--data-path', type=str, default='./data/', metavar='Path', help='Path to data')
 	parser.add_argument('--model', choices=['resnet', 'wideresnet'], default='resnet')
-	parser.add_argument('--out-path', type=str, default=None, metavar='Path', help='Path for saving computed scores')
-	parser.add_argument('--out-prefix', type=str, default=None, metavar='Path', help='Prefix to be added to output file name')
+	parser.add_argument('--out-path', type=str, default='', metavar='Path', help='Path for saving computed scores')
+	parser.add_argument('--out-prefix', type=str, default='', metavar='Path', help='Prefix to be added to output file name')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
 	parser.add_argument('--no-histogram', action='store_true', default=False, help='Disables histogram plot')
 	args = parser.parse_args()
@@ -91,4 +91,4 @@ if __name__ == '__main__':
 		matplotlib.use('agg')
 		import matplotlib.pyplot as plt
 		plt.hist(scores_dif, density=True, bins=30)
-		plt.savefig(args.out_path+args.out_prefix+'met_hist_cifar.pdf', bbox_inches='tight')
+		plt.savefig(os.path.join(args.out_path, args.out_prefix, 'met_hist_cifar.pdf'), bbox_inches='tight')
