@@ -60,7 +60,10 @@ if __name__ == '__main__':
 	idxs_enroll, idxs_test, labels = create_trials_labels(labels_list)
 	print('\n{} trials created out of which {} are target trials'.format(len(idxs_enroll), np.sum(labels)))
 
-	scores_dif = []
+	target_scores_e2e = []
+	non_target_scores_e2e = []
+	target_scores_cos = []
+	non_target_scores_cos = []
 
 	mem_embeddings = {}
 
@@ -99,15 +102,19 @@ if __name__ == '__main__':
 				emb_test = model.forward(test_ex_data).detach()
 				mem_embeddings[str(idxs_test[i])] = emb_test
 
-			scores_dif.append( abs( model.forward_bin(emb_enroll, emb_test).squeeze().item() - model.forward_bin(emb_test, emb_enroll).squeeze().item() ) )
+			e2e_score = torch.sigmoid(model.forward_bin(emb_enroll, emb_test)).squeeze().item()
+			cos_score = torch.nn.functional.cosine_similarity(emb_enroll, emb_test).squeeze().item()
+	
+			if label == 1:
+				target_scores_e2e.append(e2e_score)
+				target_scores_cos.append(cos_score)
+			elif label == 2:
+				non_target_scores_e2e.append(e2e_score)
+				non_target_scores_cos.append(cos_score)
+			else:
+				print(f'Unknown label: {label}')
 
 	print('\nScoring done')
-
-	print('Avg: {}'.format(np.mean(scores_dif)))
-	print('Std: {}'.format(np.std(scores_dif)))
-	print('Median: {}'.format(np.median(scores_dif)))
-	print('Max: {}'.format(np.max(scores_dif)))
-	print('Min: {}'.format(np.min(scores_dif)))
 
 	if not args.no_histogram:
 		import matplotlib
@@ -115,5 +122,7 @@ if __name__ == '__main__':
 		matplotlib.rcParams['ps.fonttype'] = 42
 		matplotlib.use('agg')
 		import matplotlib.pyplot as plt
-		plt.hist(scores_dif, density=True, bins=30)
-		plt.savefig(os.path.join(args.out_path, args.out_prefix, 'sym_hist_cifar.pdf'), bbox_inches='tight')
+		plt.hist((target_scores_e2e, non_target_scores_e2e), density=True, bins=30, color=('blue', 'red'))
+		plt.savefig(os.path.join(args.out_path, args.out_prefix, 'e2e_scores_hist_cifar.pdf'), bbox_inches='tight')
+		plt.hist((target_scores_cos, non_target_scores_cos), density=True, bins=30, color=('blue', 'red'))
+		plt.savefig(os.path.join(args.out_path, args.out_prefix, 'cos_scores_hist_cifar.pdf'), bbox_inches='tight')
