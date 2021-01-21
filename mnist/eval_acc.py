@@ -32,9 +32,6 @@ if __name__ == '__main__':
 		dropout_prob, n_hidden, hidden_size, softmax = ckpt['dropout_prob'], ckpt['n_hidden'], ckpt['hidden_size'], ckpt['sm_type']
 	except KeyError as err:
 		print("Key Error: {0}".format(err))
-		print('\nProbably old cp has no info regarding classifiers arch!\n')
-		n_hidden, hidden_size, softmax = get_classifier_config_from_cp(ckpt)
-		dropout_prob = args.dropout_prob
 
 	if args.model == 'cnn':
 		model = cnn.cnn(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax)
