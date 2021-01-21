@@ -39,7 +39,7 @@ if __name__ == '__main__':
 
 	transform_test = transforms.Compose([transforms.ToTensor(), transforms.Normalize([x / 255 for x in [125.3, 123.0, 113.9]], [x / 255 for x in [63.0, 62.1, 66.7]])])
 	validset = datasets.CIFAR10(root=args.data_path, train=False, download=True, transform=transform_test)
-	test_loader = torch.utils.data.DataLoader(validset, batch_size=1, shuffle=False, num_workers=args.workers)
+	test_loader = torch.utils.data.DataLoader(validset, batch_size=1, shuffle=True, num_workers=args.workers)
 	preprocessing = dict(mean=[x / 255 for x in [125.3, 123.0, 113.9]], std=[x / 255 for x in [63.0, 62.1, 66.7]], axis=-3)
 
 	ckpt = torch.load(args.cp_path, map_location = lambda storage, loc: storage)
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 			success_counter += 1
 			with torch.no_grad():
 				clean_embeddings.append( model(input_image).detach().cpu().numpy() )
-				attack_embeddings.append( model(attack_input[0]) )
+				attack_embeddings.append( model(attack_input[0]).detach().cpu().numpy() )
 				label_list.append( labels.squeeze().item() )
 
 		if success_counter == args.sample_size:
