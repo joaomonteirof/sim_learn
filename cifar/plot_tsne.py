@@ -85,7 +85,7 @@ if __name__ == '__main__':
 	model.eval()
 
 	success_counter = 0
-	iterator = tqdm(test_loader, total=args.sample_size)
+	iterator = tqdm(test_loader)
 	for input_image, labels in iterator:
 
 		input_image = input_image.to(device)
