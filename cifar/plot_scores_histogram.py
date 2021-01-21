@@ -108,7 +108,7 @@ if __name__ == '__main__':
 			if labels[i] == 1:
 				target_scores_e2e.append(e2e_score)
 				target_scores_cos.append(cos_score)
-			elif labels[i] == 2:
+			elif labels[i] == 0:
 				non_target_scores_e2e.append(e2e_score)
 				non_target_scores_cos.append(cos_score)
 			else:
