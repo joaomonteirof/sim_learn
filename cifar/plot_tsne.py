@@ -88,8 +88,8 @@ if __name__ == '__main__':
 	iterator = tqdm(test_loader, total=args.sample_size)
 	for input_image, labels in iterator:
 
-		input_image.to(device)
-		labels.to(device)
+		input_image = input_image.to(device)
+		labels = labels.to(device)
 
 		_, attack_input, success = attack(fmodel, input_image, labels, epsilons=epsilons)
 		success = success.squeeze().item()
