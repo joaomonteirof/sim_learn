@@ -114,4 +114,4 @@ if __name__ == '__main__':
 		matplotlib.use('agg')
 		import matplotlib.pyplot as plt
 		plt.hist(scores_dif, density=True, bins=30)
-		plt.savefig(os.path.join(args.out_path, args.out_prefix, 'sym_hist_mnist.pdf'), bbox_inches='tight')
+		plt.savefig(os.path.join(args.out_path, args.out_prefix+'sym_hist_mnist.pdf'), bbox_inches='tight')

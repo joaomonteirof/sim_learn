@@ -130,4 +130,4 @@ if __name__ == '__main__':
 		label='attacks'
 		)
 	plt.legend()
-	plt.savefig(os.path.join(args.out_path, args.out_prefix, 'tsne_adv_mnist.pdf'), bbox_inches='tight')
+	plt.savefig(os.path.join(args.out_path, args.out_prefix+'tsne_adv_mnist.pdf'), bbox_inches='tight')

@@ -122,6 +122,6 @@ if __name__ == '__main__':
 		matplotlib.use('agg')
 		import matplotlib.pyplot as plt
 		plt.hist((target_scores_e2e, non_target_scores_e2e), density=True, bins=30, color=('blue', 'red'))
-		plt.savefig(os.path.join(args.out_path, args.out_prefix, 'e2e_scores_hist_mnist.pdf'), bbox_inches='tight')
+		plt.savefig(os.path.join(args.out_path, args.out_prefix+'e2e_scores_hist_mnist.pdf'), bbox_inches='tight')
 		plt.hist((target_scores_cos, non_target_scores_cos), density=True, bins=30, color=('blue', 'red'))
-		plt.savefig(os.path.join(args.out_path, args.out_prefix, 'cos_scores_hist_mnist.pdf'), bbox_inches='tight')
+		plt.savefig(os.path.join(args.out_path, args.out_prefix+'cos_scores_hist_mnist.pdf'), bbox_inches='tight')
