@@ -9,7 +9,16 @@ import numpy as np
 import os
 import sys
 from tqdm import tqdm
+from foolbox import PyTorchModel, accuracy, samples
+import foolbox.attacks as fa
 from utils import *
+from sklearn.manifold import TSNE
+
+import matplotlib
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
 
@@ -19,15 +28,18 @@ if __name__ == '__main__':
 	parser.add_argument('--data-path', type=str, default='./data/', metavar='Path', help='Path to data')
 	parser.add_argument('--model', choices=['resnet', 'wideresnet'], default='resnet')
 	parser.add_argument('--inf-mode', choices=['sim', 'ce', 'fus'], default='sim', help='Inference mode')
+	parser.add_argument('--sample-size', type=int, default=1000, metavar='N', help='Number of images to plot')
 	parser.add_argument('--out-path', type=str, default='', metavar='Path', help='Path for saving outputs')
 	parser.add_argument('--out-prefix', type=str, default='', metavar='Path', help='Prefix to be added to output file name')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
 	parser.add_argument('--no-histogram', action='store_true', default=False, help='Disables histogram plot')
+	parser.add_argument('--workers', type=int, default=4, metavar='N', help='Data load workers (default: 4)')
 	args = parser.parse_args()
 	args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 
 	transform_test = transforms.Compose([transforms.ToTensor(), transforms.Normalize([x / 255 for x in [125.3, 123.0, 113.9]], [x / 255 for x in [63.0, 62.1, 66.7]])])
 	validset = datasets.CIFAR10(root=args.data_path, train=False, download=True, transform=transform_test)
+	test_loader = torch.utils.data.DataLoader(validset, batch_size=1, shuffle=False, num_workers=args.workers)
 	preprocessing = dict(mean=[x / 255 for x in [125.3, 123.0, 113.9]], std=[x / 255 for x in [63.0, 62.1, 66.7]], axis=-3)
 
 	ckpt = torch.load(args.cp_path, map_location = lambda storage, loc: storage)
@@ -58,43 +70,66 @@ if __name__ == '__main__':
 	model = model.to(device)
 	model.centroids = model.centroids.to(device)
 
-	model = wrapper_racc.wrapper(base_model=model, inf_mode=args.inf_mode)
+	attack = fa.LinfPGD(steps=7)
+	epsilons = [8.0/255.0]
 
 	model.eval()
 
-	fmodel = PyTorchModel(model, bounds=(0, 1), preprocessing=preprocessing, device=device)
+	fmodel = PyTorchModel(wrapper_racc.wrapper(base_model=model, inf_mode=args.inf_mode).eval(),
+		bounds=(0, 1),
+		preprocessing=preprocessing,
+		device=device)
 
-	clean_embeddings, attack_embeddings = [], []
+	clean_embeddings, attack_embeddings, label_list = [], [], []
 
 	model.eval()
 
-	with torch.no_grad():
+	success_counter = 0
+	iterator = tqdm(test_loader, total=args.sample_size)
+	for input_image, labels in iterator:
 
-		iterator = tqdm(range(len(validset)), total=len(validset))
-		for i in iterator:
+		_, attack_input, success = attack(fmodel, input_image, labels, epsilons=epsilons)
+		success = success.squeeze().item()
 
-			enroll_ex_data = validset[i][0].unsqueeze(0)
+		if success:
+			success_counter += 1
+			with torch.no_grad():
+				clean_embeddings.append( model(input_image).detach().cpu().numpy() )
+				attack_embeddings.append( model(attack_input[0]) )
+				label_list.append( labels.squeeze().item() )
 
-			if args.cuda:
-				enroll_ex_data = enroll_ex_data.cuda(device)
+		if success_counter == args.sample_size:
+			break
 
-			emb_enroll = model.forward(enroll_ex_data).detach()
+	clean_embeddings, attack_embeddings = np.concatenate(clean_embeddings, axis=0,), np.concatenate(attack_embeddings, axis=0)
+	centroids = model.centroids.detach().clone().cpu().numpy()
 
-			scores_dif.append( 1.-torch.sigmoid(model.forward_bin(emb_enroll, emb_enroll)).squeeze().item() )
+	print('\n\nDone creating attacks.\n')
 
-	print('\nScoring done')
+	if success_counter != args.sample_size:
+		print(f'\nDesired number of attackers not achieved. Computed {success_counter} attacks.\n')
 
-	print('Avg: {}'.format(np.mean(scores_dif)))
-	print('Std: {}'.format(np.std(scores_dif)))
-	print('Median: {}'.format(np.median(scores_dif)))
-	print('Max: {}'.format(np.max(scores_dif)))
-	print('Min: {}'.format(np.min(scores_dif)))
 
-	if not args.no_histogram:
-		import matplotlib
-		matplotlib.rcParams['pdf.fonttype'] = 42
-		matplotlib.rcParams['ps.fonttype'] = 42
-		matplotlib.use('agg')
-		import matplotlib.pyplot as plt
-		plt.hist(scores_dif, density=True, bins=30)
-		plt.savefig(os.path.join(args.out_path, args.out_prefix, 'met_hist_cifar.pdf'), bbox_inches='tight')
+	embeddings = np.concatenate((centroids, clean_embeddings, attack_embeddings), axis=0)
+	tsne_embeddings = TSNE(n_components=2).fit_transform(embeddings)
+
+	plt.scatter(tsne_embeddings[:centroids.shape[0], 0],
+		tsne_embeddings[:centroids.shape[0], 1],
+		marker='X',
+		color='black',
+		s=60.0,
+		label='Centroids'
+		)
+	plt.scatter(tsne_embeddings[centroids.shape[0]:(centroids.shape[0]+args.sample_size), 0],
+		tsne_embeddings[centroids.shape[0]:(centroids.shape[0]+args.sample_size), 1],
+		c=label_list,
+		label='Test instances'
+		)
+	plt.scatter(tsne_embeddings[(centroids.shape[0]+args.sample_size):, 0],
+		tsne_embeddings[(centroids.shape[0]+args.sample_size):, 1],
+		marker='*',
+		color='red',
+		label='attacks'
+		)
+	plt.legend()
+	plt.savefig(os.path.join(args.out_path, args.out_prefix, 'tsne_adv_cifar.pdf'), bbox_inches='tight')
