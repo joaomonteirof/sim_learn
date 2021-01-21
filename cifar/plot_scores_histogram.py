@@ -112,7 +112,7 @@ if __name__ == '__main__':
 				non_target_scores_e2e.append(e2e_score)
 				non_target_scores_cos.append(cos_score)
 			else:
-				print(f'Unknown label: {label}')
+				print(f'Unknown label: {labels[i]}')
 
 	print('\nScoring done')
 
