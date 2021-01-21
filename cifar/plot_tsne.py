@@ -70,8 +70,8 @@ if __name__ == '__main__':
 	model = model.to(device)
 	model.centroids = model.centroids.to(device)
 
-	attack = fa.LinfPGD(steps=7)
-	epsilons = [8.0/255.0]
+	attack = fa.LinfPGD(steps=20)
+	epsilons = [16.0/255.0]
 
 	model.eval()
 
