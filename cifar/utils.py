@@ -62,9 +62,10 @@ def get_classifier_config_from_cp(ckpt):
 			out_proj_params.append(x)
 	return max(len(classifier_params)//2 - 1, 1), ckpt['model_state']['classifier.0.weight'].size(0), 'am_softmax' if len(out_proj_params)==1 else 'softmax'
 
-def create_trials_labels(labels_list):
+def create_trials_labels(labels_list, max_non_target_trials=-1):
 
 	enroll_ex, test_ex, labels = [], [], []
+	non_target_trials_counter = 0
 
 	for prod_exs in itertools.combinations(list(range(len(labels_list))), 2):
 
@@ -75,6 +76,9 @@ def create_trials_labels(labels_list):
 			labels.append(1)
 		else:
 			labels.append(0)
+			non_target_trials_counter+=1
+			if non_target_trials_counter==max_non_target_trials:
+				break
 
 	return enroll_ex, test_ex, labels
 

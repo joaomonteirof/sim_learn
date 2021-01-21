@@ -18,6 +18,7 @@ if __name__ == '__main__':
 	parser.add_argument('--cp-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
 	parser.add_argument('--data-path', type=str, default='./data/', metavar='Path', help='Path to data')
 	parser.add_argument('--model', choices=['resnet', 'wideresnet'], default='resnet')
+	parser.add_argument('--max-nontarget', type=int, default=50000, metavar='N', help='Maximum number of non target trials to be considered')
 	parser.add_argument('--out-path', type=str, default='', metavar='Path', help='Path for saving outputs')
 	parser.add_argument('--out-prefix', type=str, default='', metavar='Path', help='Prefix to be added to output file name')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
@@ -57,7 +58,7 @@ if __name__ == '__main__':
 	model = model.to(device)
 	model.centroids = model.centroids.to(device)
 
-	idxs_enroll, idxs_test, labels = create_trials_labels(labels_list)
+	idxs_enroll, idxs_test, labels = create_trials_labels(labels_list, max_non_target_trials=args.max_nontarget)
 	print('\n{} trials created out of which {} are target trials'.format(len(idxs_enroll), np.sum(labels)))
 
 	scores_dif = []
