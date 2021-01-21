@@ -23,12 +23,12 @@ import matplotlib.pyplot as plt
 if __name__ == '__main__':
 
 
-	parser = argparse.ArgumentParser(description='Symmetry check')
+	parser = argparse.ArgumentParser(description='Plot embeddings of clean and attack samples')
 	parser.add_argument('--cp-path', type=str, default=None, metavar='Path', help='Path for checkpointing')
 	parser.add_argument('--data-path', type=str, default='./data/', metavar='Path', help='Path to data')
 	parser.add_argument('--model', choices=['resnet', 'wideresnet'], default='resnet')
 	parser.add_argument('--inf-mode', choices=['sim', 'ce', 'fus'], default='sim', help='Inference mode')
-	parser.add_argument('--sample-size', type=int, default=1000, metavar='N', help='Number of images to plot')
+	parser.add_argument('--sample-size', type=int, default=200, metavar='N', help='Number of images to plot')
 	parser.add_argument('--out-path', type=str, default='', metavar='Path', help='Path for saving outputs')
 	parser.add_argument('--out-prefix', type=str, default='', metavar='Path', help='Prefix to be added to output file name')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
@@ -123,13 +123,13 @@ if __name__ == '__main__':
 		s=60.0,
 		label='Centroids'
 		)
-	plt.scatter(tsne_embeddings[centroids.shape[0]:(centroids.shape[0]+args.sample_size), 0],
-		tsne_embeddings[centroids.shape[0]:(centroids.shape[0]+args.sample_size), 1],
+	plt.scatter(tsne_embeddings[centroids.shape[0]:(centroids.shape[0]+success_counter), 0],
+		tsne_embeddings[centroids.shape[0]:(centroids.shape[0]+success_counter), 1],
 		c=label_list,
 		label='Test instances'
 		)
-	plt.scatter(tsne_embeddings[(centroids.shape[0]+args.sample_size):, 0],
-		tsne_embeddings[(centroids.shape[0]+args.sample_size):, 1],
+	plt.scatter(tsne_embeddings[(centroids.shape[0]+success_counter):, 0],
+		tsne_embeddings[(centroids.shape[0]+success_counter):, 1],
 		marker='*',
 		color='red',
 		label='attacks'
