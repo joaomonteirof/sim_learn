@@ -81,6 +81,7 @@ if __name__ == '__main__':
 		device=device)
 
 	clean_embeddings, attack_embeddings, label_list = [], [], []
+	emb_diff_max, emb_diff_mean = [], []
 
 	model.eval()
 
@@ -100,6 +101,10 @@ if __name__ == '__main__':
 				clean_embeddings.append( model(input_image).detach().cpu().numpy() )
 				attack_embeddings.append( model(attack_input[0]).detach().cpu().numpy() )
 				label_list.append( labels.squeeze().item() )
+				embeddings_absolute_difference = np.abs(clean_embeddings[-1]-attack_embeddings[-1])
+				emb_diff_max.append(np.max(embeddings_absolute_difference))
+				emb_diff_mean.append(np.mean(clean_embeddings[-1]))
+				
 
 		if success_counter == args.sample_size:
 			break
@@ -136,3 +141,7 @@ if __name__ == '__main__':
 		)
 	plt.legend()
 	plt.savefig(os.path.join(args.out_path, args.out_prefix+'tsne_adv_cifar.pdf'), bbox_inches='tight')
+	plt.hist(emb_diff_max, density=True, bins=30)
+	plt.savefig(os.path.join(args.out_path, args.out_prefix+'adv_emb_diff_max_hist_cifar.pdf'), bbox_inches='tight')
+	plt.hist(emb_diff_mean, density=True, bins=30)
+	plt.savefig(os.path.join(args.out_path, args.out_prefix+'adv_emb_diff_mean_hist_cifar.pdf'), bbox_inches='tight')
