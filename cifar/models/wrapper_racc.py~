@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torchvision import transforms
 
 class wrapper(nn.Module):
-	def __init__(self, base_model, inf_mode='sim', normalize=False, use_softmax=True):
+	def __init__(self, base_model, inf_mode='sim', normalize=False):
 		super(wrapper, self).__init__()
 
 		if normalize:
@@ -14,7 +14,6 @@ class wrapper(nn.Module):
 
 		self.base_model = base_model
 		self.inf_mode = inf_mode
-		self.use_softmax = use_softmax
 
 	def forward(self, x):
 
@@ -32,7 +31,4 @@ class wrapper(nn.Module):
 			logits_ce = self.base_model.out_proj(embeddings)
 			logits = (logits_sim+logits_ce)*0.5
 
-		if self.use_softmax:
-			logits = F.softmax(logits, dim=1)
-
-		return logits
+		return F.softmax(logits, dim=1)

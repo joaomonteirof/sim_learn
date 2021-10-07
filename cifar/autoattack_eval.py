@@ -46,11 +46,11 @@ if __name__ == '__main__':
 		print("Unexpected error:", sys.exc_info()[0])
 		raise
 
-	model.centroids = model.centroids
+	model.centroids = model.centroids.cuda()
 
-	model = model.eval()
+	model = model.eval().cuda()
 
-	model = wrapper_racc.wrapper(base_model=model, inf_mode=args.inf_mode, normalize=True).eval()
+	model = wrapper_racc.wrapper(base_model=model, inf_mode=args.inf_mode, normalize=True, use_softmax=False).eval().cuda()
 
 	adversary = AutoAttack(model, norm='Linf', eps=8./255., version='standard')
 
