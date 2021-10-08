@@ -10,6 +10,7 @@ from harvester import AllTripletSelector
 from models.losses import LabelSmoothingLoss
 from models.wrapper_racc import wrapper
 from utils import compute_eer
+import foolbox as fb
 
 class TrainLoop(object):
 
@@ -57,9 +58,7 @@ class TrainLoop(object):
 			self.load_checkpoint(self.save_epoch_fmt.format(checkpoint_epoch))
 
 		if self.adv_train:
-			import advertorch
-			self.attack = advertorch.attacks.LinfPGDAttack
-			self.adv_ctx = advertorch.context.ctx_noparamgrad_and_eval
+			self.attack = fb.attacks.LinfPGD(abs_stepsize=32.0/(255.0*100), steps=100, random_start=True)
 
 	def train(self, n_epochs=1, save_every=1):
 
@@ -158,7 +157,6 @@ class TrainLoop(object):
 
 	def train_step(self, batch):
 
-		self.model.train()
 		self.optimizer.zero_grad()
 
 		x, y = batch
@@ -167,12 +165,14 @@ class TrainLoop(object):
 		y = y.to(self.device)
 
 		if self.adv_train and not self.ablation_ce:
-			target_model = wrapper(base_model=self.model, inf_mode='fus', use_softmax=False)
-			adversary = self.attack(target_model, loss_fn=torch.nn.CrossEntropyLoss(reduction="sum"), eps=32.0/255.0, nb_iter=100, 
-			eps_iter=(32.0/255.0*100.0), rand_init=True, clip_min=-2.0, clip_max=2.0, targeted=False)
-			with self.adv_ctx(target_model):
-				x_adv = adversary.perturb(x, y)
-			x, y = torch.cat([x, x_adv], 0), torch.cat([y, y], 0)
+			wrapped_model = wrapper(base_model=self.model.eval(), inf_mode='ce', normalize=True, use_softmax=False).to(self.device).eval()
+			target_model = fb.PyTorchModel(wrapped_model, bounds=(0.0, 1.0))
+			_, x_adv, _ = self.attack(target_model, x, y, epsilons=32.0/255.0)
+			x_clean = wrapped_model.normalization(x)
+			x_adv = wrapped_model.normalization(x_adv)
+			x, y = torch.cat([x_clean, x_adv], 0), torch.cat([y, y], 0)
+
+		self.model.train()
 
 		embeddings = self.model.forward(x)
 
