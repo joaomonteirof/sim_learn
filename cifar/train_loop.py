@@ -168,9 +168,9 @@ class TrainLoop(object):
 		y = y.to(self.device)
 
 		if self.adv_train and not self.ablation_ce:
-			target_model = wrapper(base_model=self.model, inf_mode='ce')
-			adversary = self.attack(target_model, loss_fn=torch.nn.CrossEntropyLoss(reduction="sum"), eps=16.0/255.0, nb_iter=10, 
-			eps_iter=0.01, rand_init=True, clip_min=-2.0, clip_max=2.0, targeted=False)
+			target_model = wrapper(base_model=self.model, inf_mode='fus', use_softmax=False)
+			adversary = self.attack(target_model, loss_fn=torch.nn.CrossEntropyLoss(reduction="sum"), eps=32.0/255.0, nb_iter=100, 
+			eps_iter=(32.0/255.0*100.0), rand_init=True, clip_min=-2.0, clip_max=2.0, targeted=False)
 			with self.adv_ctx(target_model):
 				x_adv = adversary.perturb(x, y)
 			x, y = torch.cat([x, x_adv], 0), torch.cat([y, y], 0)
