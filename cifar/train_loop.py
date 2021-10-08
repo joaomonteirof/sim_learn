@@ -57,10 +57,9 @@ class TrainLoop(object):
 			self.load_checkpoint(self.save_epoch_fmt.format(checkpoint_epoch))
 
 		if self.adv_train:
-			from advertorch.context import ctx_noparamgrad_and_eval
-			from advertorch.attacks import LinfPGDAttack
-			self.attack = LinfPGDAttack
-			self.adv_ctx = ctx_noparamgrad_and_eval
+			import advertorch
+			self.attack = advertorch.attacks.LinfPGDAttack
+			self.adv_ctx = advertorch.context.ctx_noparamgrad_and_eval
 
 	def train(self, n_epochs=1, save_every=1):
 
