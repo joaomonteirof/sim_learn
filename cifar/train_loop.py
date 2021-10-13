@@ -58,7 +58,7 @@ class TrainLoop(object):
 			self.load_checkpoint(self.save_epoch_fmt.format(checkpoint_epoch))
 
 		if self.adv_train:
-			self.attack = fb.attacks.LinfPGD(abs_stepsize=32.0/(255.0*100), steps=100, random_start=True)
+			self.attack = fb.attacks.LinfPGD(abs_stepsize=20.0/(255.0*10.0), steps=10, random_start=True)
 
 	def train(self, n_epochs=1, save_every=1):
 
@@ -164,13 +164,11 @@ class TrainLoop(object):
 		x = x.to(self.device)
 		y = y.to(self.device)
 
-		if self.adv_train and not self.ablation_ce:
-			wrapped_model = wrapper(base_model=self.model.eval(), inf_mode='ce', normalize=True, use_softmax=False).to(self.device).eval()
+		if self.adv_train:
+			wrapped_model = wrapper(base_model=self.model.eval(), inf_mode='sim', normalize=False, use_softmax=False).to(self.device).eval()
 			target_model = fb.PyTorchModel(wrapped_model, bounds=(0.0, 1.0))
-			_, x_adv, _ = self.attack(target_model, x, y, epsilons=32.0/255.0)
-			x_clean = wrapped_model.normalization(x)
-			x_adv = wrapped_model.normalization(x_adv)
-			x, y = torch.cat([x_clean, x_adv], 0), torch.cat([y, y], 0)
+			_, x_adv, _ = self.attack(target_model, x, y, epsilons=20.0/255.0)
+			x, y = torch.cat([x, x_adv], 0), torch.cat([y, y], 0)
 
 		self.model.train()
 
@@ -211,12 +209,18 @@ class TrainLoop(object):
 
 		self.model.eval()
 
+		x, y = batch
+
+		x = x.to(self.device)
+		y = y.to(self.device)
+
+		if self.adv_train:
+			wrapped_model = wrapper(base_model=self.model.eval(), inf_mode='sim', normalize=False, use_softmax=False).to(self.device).eval()
+			target_model = fb.PyTorchModel(wrapped_model, bounds=(0.0, 1.0))
+			_, x_adv, _ = self.attack(target_model, x, y, epsilons=20.0/255.0)
+			x, y = torch.cat([x, x_adv], 0), torch.cat([y, y], 0)
+
 		with torch.no_grad():
-
-			x, y = batch
-
-			x = x.to(self.device)
-			y = y.to(self.device)
 
 			embeddings = self.model.forward(x)
 

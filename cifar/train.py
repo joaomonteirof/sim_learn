@@ -67,12 +67,10 @@ args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 if args.cuda:
 	torch.backends.cudnn.benchmark=True
 
-if args.adv_train:
-	transform_train = transforms.Compose([transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise()])
-else:
-	transform_train = transforms.Compose([transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise(), transforms.Normalize([x / 255 for x in [125.3, 123.0, 113.9]], [x / 255 for x in [63.0, 62.1, 66.7]])])
 
-transform_test = transforms.Compose([transforms.ToTensor(), transforms.Normalize([x / 255 for x in [125.3, 123.0, 113.9]], [x / 255 for x in [63.0, 62.1, 66.7]])])
+transform_train = transforms.Compose([transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise()])
+# transform_test = transforms.Compose([transforms.ToTensor(), transforms.Normalize([x / 255 for x in [125.3, 123.0, 113.9]], [x / 255 for x in [63.0, 62.1, 66.7]])])
+transform_test = transforms.ToTensor()
 
 #trainset = Loader(args.data_path)
 transform_train.transforms.insert(0, RandAugment(args.aug_N, args.aug_M))
