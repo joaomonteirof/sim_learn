@@ -58,7 +58,7 @@ class TrainLoop(object):
 			self.load_checkpoint(self.save_epoch_fmt.format(checkpoint_epoch))
 
 		if self.adv_train:
-			self.attack = fb.attacks.LinfPGD(abs_stepsize=20.0/(255.0*10.0), steps=10, random_start=True)
+			self.attack = fb.attacks.LinfPGD(abs_stepsize=2.0/255.0, steps=10, random_start=True)
 
 	def train(self, n_epochs=1, save_every=1):
 
@@ -166,9 +166,11 @@ class TrainLoop(object):
 
 		if self.adv_train:
 			wrapped_model = wrapper(base_model=self.model.eval(), inf_mode='sim', normalize=False, use_softmax=False).to(self.device).eval()
+			wrapped_model.base_model.centroids = wrapped_model.base_model.centroids.to(self.device)
 			target_model = fb.PyTorchModel(wrapped_model, bounds=(0.0, 1.0))
 			_, x_adv, _ = self.attack(target_model, x, y, epsilons=20.0/255.0)
-			x, y = torch.cat([x, x_adv], 0), torch.cat([y, y], 0)
+			x, y = torch.cat([x, x_adv.detach()], 0), torch.cat([y, y], 0)
+			self.optimizer.zero_grad()
 
 		self.model.train()
 
@@ -216,9 +218,11 @@ class TrainLoop(object):
 
 		if self.adv_train:
 			wrapped_model = wrapper(base_model=self.model.eval(), inf_mode='sim', normalize=False, use_softmax=False).to(self.device).eval()
+			wrapped_model.base_model.centroids = wrapped_model.base_model.centroids.to(self.device)
 			target_model = fb.PyTorchModel(wrapped_model, bounds=(0.0, 1.0))
 			_, x_adv, _ = self.attack(target_model, x, y, epsilons=20.0/255.0)
-			x, y = torch.cat([x, x_adv], 0), torch.cat([y, y], 0)
+			x, y = torch.cat([x, x_adv.detach()], 0), torch.cat([y, y], 0)
+			self.optimizer.zero_grad()
 
 		with torch.no_grad():
 
