@@ -17,6 +17,7 @@ if __name__ == '__main__':
 	parser.add_argument('--model', choices=['resnet', 'wideresnet'], default='resnet')
 	parser.add_argument('--inf-mode', choices=['sim', 'ce', 'fus'], default='sim', help='Inference mode')
 	parser.add_argument('--workers', type=int, default=4, metavar='N', help='Data load workers (default: 4)')
+	parser.add_argument('--normalize-data', action='store_true', default=False, help='Enables normalization within forward pass')
 	args = parser.parse_args()
 
 	print('\n', args, '\n')
@@ -50,7 +51,7 @@ if __name__ == '__main__':
 
 	model = model.eval().cuda()
 
-	model = wrapper_racc.wrapper(base_model=model, inf_mode=args.inf_mode, normalize=True, use_softmax=False).eval().cuda()
+	model = wrapper_racc.wrapper(base_model=model, inf_mode=args.inf_mode, normalize=args.normalize_data, use_softmax=False).eval().cuda()
 
 	adversary = AutoAttack(model, norm='Linf', eps=8./255., version='standard')
 

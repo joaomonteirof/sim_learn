@@ -169,7 +169,7 @@ class TrainLoop(object):
 			wrapped_model.base_model.centroids = wrapped_model.base_model.centroids.to(self.device)
 			target_model = fb.PyTorchModel(wrapped_model, bounds=(0.0, 1.0))
 			_, x_adv, _ = self.attack(target_model, x, y, epsilons=20.0/255.0)
-			x, y = torch.cat([x, x_adv.detach()], 0), torch.cat([y, y], 0)
+			x = x_adv.detach()
 			self.optimizer.zero_grad()
 
 		self.model.train()
@@ -221,7 +221,7 @@ class TrainLoop(object):
 			wrapped_model.base_model.centroids = wrapped_model.base_model.centroids.to(self.device)
 			target_model = fb.PyTorchModel(wrapped_model, bounds=(0.0, 1.0))
 			_, x_adv, _ = self.attack(target_model, x, y, epsilons=20.0/255.0)
-			x, y = torch.cat([x, x_adv.detach()], 0), torch.cat([y, y], 0)
+			x = x_adv.detach()
 			self.optimizer.zero_grad()
 
 		with torch.no_grad():
