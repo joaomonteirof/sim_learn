@@ -46,7 +46,14 @@ class TrainLoop(object):
 		else:
 			self.ce_criterion = torch.nn.CrossEntropyLoss()
 
-		self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=[10, 150, 250, 350], gamma=0.1)
+
+		if self.adv_train:
+			lr_milestones = (100, 150)
+		else:
+			lr_milestones = (10, 150, 250, 350)
+
+
+		self.scheduler = torch.optim.lr_scheduler.MultiStepLR(self.optimizer, milestones=lr_milestones, gamma=0.1)
 
 		if self.valid_loader is not None:
 			self.history['e2e_eer'] = []
