@@ -68,16 +68,17 @@ if args.cuda:
 	torch.backends.cudnn.benchmark=True
 
 
-transform_train = transforms.Compose([transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor(), add_noise()])
+transform_train = transforms.Compose([transforms.RandomCrop(32, padding=4), transforms.RandomHorizontalFlip(), transforms.ToTensor()])
 # transform_test = transforms.Compose([transforms.ToTensor(), transforms.Normalize([x / 255 for x in [125.3, 123.0, 113.9]], [x / 255 for x in [63.0, 62.1, 66.7]])])
 transform_test = transforms.ToTensor()
 
-#trainset = Loader(args.data_path)
-transform_train.transforms.insert(0, RandAugment(args.aug_N, args.aug_M))
+if not args.adv_train:
+	transform_train.transforms.insert(0, RandAugment(args.aug_N, args.aug_M))
+	transform_train.transforms.insert(len(transform_train.transforms), add_noise())
+
 trainset = datasets.CIFAR10(root=args.data_path, train=True, download=True, transform=transform_train)
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.n_workers, worker_init_fn=set_np_randomseed)
 
-#validset = Loader(args.valid_data_path)
 validset = datasets.CIFAR10(root=args.data_path, train=False, download=True, transform=transform_test)
 valid_loader = torch.utils.data.DataLoader(validset, batch_size=args.valid_batch_size, shuffle=False, num_workers=args.n_workers)
 
@@ -104,7 +105,7 @@ if args.cuda:
 	device = torch.device('cuda:0')
 	model = model.to(device)
 
-optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.l2, momentum=args.momentum)
+optimizer = optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.l2, momentum=args.momentum, nesterov=args.adv_train)
 
 trainer = TrainLoop(model, optimizer, train_loader, valid_loader, label_smoothing=args.smoothing,
 			verbose=args.verbose, save_cp=(not args.no_cp), checkpoint_path=args.checkpoint_path,

@@ -48,7 +48,7 @@ class TrainLoop(object):
 
 
 		if self.adv_train:
-			lr_milestones = (100, 150)
+			lr_milestones = (50, 100, 150)
 		else:
 			lr_milestones = (10, 150, 250, 350)
 
@@ -172,7 +172,7 @@ class TrainLoop(object):
 		y = y.to(self.device)
 
 		if self.adv_train:
-			wrapped_model = wrapper(base_model=self.model.eval(), inf_mode='sim', normalize=False, use_softmax=False).to(self.device).eval()
+			wrapped_model = wrapper(base_model=self.model.eval(), inf_mode='ce', normalize=False, use_softmax=False).to(self.device).eval()
 			wrapped_model.base_model.centroids = wrapped_model.base_model.centroids.to(self.device)
 			target_model = fb.PyTorchModel(wrapped_model, bounds=(0.0, 1.0))
 			_, x_adv, _ = self.attack(target_model, x, y, epsilons=20.0/255.0)
@@ -224,7 +224,7 @@ class TrainLoop(object):
 		y = y.to(self.device)
 
 		if self.adv_train:
-			wrapped_model = wrapper(base_model=self.model.eval(), inf_mode='sim', normalize=False, use_softmax=False).to(self.device).eval()
+			wrapped_model = wrapper(base_model=self.model.eval(), inf_mode='ce', normalize=False, use_softmax=False).to(self.device).eval()
 			wrapped_model.base_model.centroids = wrapped_model.base_model.centroids.to(self.device)
 			target_model = fb.PyTorchModel(wrapped_model, bounds=(0.0, 1.0))
 			_, x_adv, _ = self.attack(target_model, x, y, epsilons=20.0/255.0)
