@@ -19,6 +19,7 @@ if __name__ == '__main__':
 	parser.add_argument('--batch-size', type=int, default=100, metavar='N', help='input batch size for testing (default: 100)')
 	parser.add_argument('--model', choices=['resnet', 'wideresnet'], default='resnet')
 	parser.add_argument('--inf-mode', choices=['sim', 'ce', 'fus'], default='sim', help='Inference mode')
+	parser.add_argument('--normalize-data', action='store_true', default=False, help='Enables normalizing data')
 	parser.add_argument('--workers', type=int, default=4, metavar='N', help='Data load workers (default: 4)')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
 	parser.add_argument('--full-eps', action='store_true', default=False, help='Enables use of large list of epsilons per attack')
@@ -31,7 +32,7 @@ if __name__ == '__main__':
 	transform_test = transforms.Compose([transforms.ToTensor()])
 	testset = datasets.CIFAR10(root=args.data_path, train=False, download=True, transform=transform_test)
 	test_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
-	preprocessing = dict(mean=[x / 255 for x in [125.3, 123.0, 113.9]], std=[x / 255 for x in [63.0, 62.1, 66.7]], axis=-3)
+	preprocessing = dict(mean=[x / 255 for x in [125.3, 123.0, 113.9]], std=[x / 255 for x in [63.0, 62.1, 66.7]], axis=-3) # only used if --normalize-data is set.
 
 	ckpt = torch.load(args.cp_path, map_location = lambda storage, loc: storage)
 	try :
@@ -66,7 +67,7 @@ if __name__ == '__main__':
 
 	model.eval()
 
-	fmodel = PyTorchModel(model, bounds=(0, 1), preprocessing=preprocessing, device=device)
+	fmodel = PyTorchModel(model, bounds=(0, 1), preprocessing=preprocessing if args.normalize_data else None, device=device)
 
 	if args.full_attack:
 

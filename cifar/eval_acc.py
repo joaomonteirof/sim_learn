@@ -20,11 +20,14 @@ if __name__ == '__main__':
 	parser.add_argument('--model', choices=['resnet', 'wideresnet'], default='resnet')
 	parser.add_argument('--no-cuda', action='store_true', default=False, help='Disables GPU use')
 	parser.add_argument('--ablation-sim', action='store_true', default=False, help='Computes similarities as negative Euclidean distances')
+	parser.add_argument('--normalize-data', action='store_true', default=False, help='Enables normalizing data')
 	parser.add_argument('--workers', type=int, default=4, metavar='N', help='Data load workers (default: 4)')
 	args = parser.parse_args()
 	args.cuda = True if not args.no_cuda and torch.cuda.is_available() else False
 
-	transform_test = transforms.Compose([transforms.ToTensor(), transforms.Normalize([x / 255 for x in [125.3, 123.0, 113.9]], [x / 255 for x in [63.0, 62.1, 66.7]])])
+	transform_test = transforms.Compose([transforms.ToTensor(), ])
+	if args.normalize_data:
+		 transform_test.transforms.insert(len(transform_test.transforms), transforms.Normalize([x / 255 for x in [125.3, 123.0, 113.9]], [x / 255 for x in [63.0, 62.1, 66.7]]))
 	testset = datasets.CIFAR10(root=args.data_path, train=False, download=True, transform=transform_test)
 	test_loader = torch.utils.data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers)
 
@@ -38,7 +41,7 @@ if __name__ == '__main__':
 		model = resnet.ResNet18(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax)
 	elif args.model == 'wideresnet':
 		model = wideresnet.WideResNet(nh=n_hidden, n_h=hidden_size, dropout_prob=dropout_prob, sm_type=softmax)
-	
+
 	try:
 		print(model.load_state_dict(ckpt['model_state'], strict=True), '\n')
 		model.centroids = ckpt['centroids']
